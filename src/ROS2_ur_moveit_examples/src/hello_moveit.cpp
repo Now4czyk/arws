@@ -72,24 +72,37 @@ int main(int argc, char *argv[])
         msg.position.z = msgPositionZ;
         return msg;
     }();
-    move_group_interface.setPoseTarget(target_pose);
+
+    std::vector<geometry_msgs::msg::Pose> waypoints;
+    waypoints.push_back(target_pose);
+
+    geometry_msgs::msg::Pose target_pose3 = target_pose;
+
+    target_pose3.position.z -= 0.2;
+    waypoints.push_back(target_pose3);  // down
+
+    target_pose3.position.y -= 0.2;
+    waypoints.push_back(target_pose3);  // right
+
+    target_pose3.position.z += 0.2;
+    target_pose3.position.y += 0.2;
+    target_pose3.position.x -= 0.2;
+    waypoints.push_back(target_pose3);  // up and left
+
 
     // Create a plan to that target pose
-    auto const [success, plan] = [&move_group_interface]
-    {
-        moveit::planning_interface::MoveGroupInterface::Plan msg;
-        auto const ok = static_cast<bool>(move_group_interface.plan(msg));
-        return std::make_pair(ok, msg);
-    }();
+    for (const auto& waypoint : waypoints) {
+        move_group_interface.setPoseTarget(waypoint);
 
-    // Execute the plan
-    if (success)
-    {
-        move_group_interface.execute(plan);
-    }
-    else
-    {
-        RCLCPP_ERROR(logger, "Planing failed!");
+        moveit::planning_interface::MoveGroupInterface::Plan plan;
+        bool success = static_cast<bool>(move_group_interface.plan(plan));
+
+        if (success) {
+            move_group_interface.execute(plan);
+            RCLCPP_INFO(logger, "Execution successful for the waypoint.");
+        } else {
+            RCLCPP_ERROR(logger, "Path planning failed for the waypoint.");
+        }
     }
 
     // Shutdown ROS
