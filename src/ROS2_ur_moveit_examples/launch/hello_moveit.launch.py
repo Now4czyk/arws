@@ -1,12 +1,15 @@
 import launch
 import os
-import sys
 import yaml
 
 from launch_ros.actions import Node
 from launch.substitutions import PathJoinSubstitution, Command, FindExecutable
 from launch_ros.substitutions import FindPackageShare
 from ament_index_python.packages import get_package_share_directory
+
+
+from launch import LaunchDescription
+from launch.event_handlers import OnProcessExit
 
 def load_yaml(package_name, file_path):
     package_path = get_package_share_directory(package_name)
@@ -115,7 +118,38 @@ def generate_launch_description():
         [FindPackageShare(moveit_config_package), "config", "kinematics.yaml"]
     )
 
-    demo_node = Node(
+    # argumenty nie mogą być niczym innym z tego co widzę niż stringami
+    # Argumenty to po kolei:
+    # 1. Randomowy string pokazowo jak przekazać stringa na przyszłość
+    # 2. msg.orientation.w;
+    # 3. msg.orientation.x;
+    # 4. msg.orientation.y;
+    # 5. msg.orientation.z;
+    # 6. msg.position.x;
+    # 7. msg.position.y;
+    # 8. msg.position.z;
+    arguments1 = [
+        "argument1 to arg przykladowy do stringa",
+        "0.0",
+        "0.0",
+        "0.0",
+        "0.0",
+        "0.2",
+        "-0.2",
+        "0.1",
+    ]
+    arguments2 = [
+        "argument1 to arg przykladowy do stringa",
+        "0.0",
+        "0.0",
+        "0.0",
+        "0.0",
+        "-0.2",
+        "0.2",
+        "0.1",
+    ]
+
+    demo_node1 = Node(
         package="ros2_ur_moveit_examples",
         executable="hello_moveit",
         name="hello_moveit",
@@ -125,6 +159,29 @@ def generate_launch_description():
             robot_description_semantic,
             robot_description_kinematics,
         ],
+        arguments=arguments1,
     )
 
-    return launch.LaunchDescription([demo_node])
+    demo_node2 = Node(
+        package="ros2_ur_moveit_examples",
+        executable="hello_moveit",
+        name="hello_moveit",
+        output="screen",
+        parameters=[
+            robot_description,
+            robot_description_semantic,
+            robot_description_kinematics,
+        ],
+        arguments=arguments2,
+    )
+    # Define an event handler to launch demo_node2 after demo_node1 exits
+    demo_node1_exit_handler = launch.actions.RegisterEventHandler(
+        OnProcessExit(
+            target_action=demo_node1,
+            on_exit=LaunchDescription([
+                    demo_node2
+                ])
+        )
+    )
+
+    return launch.LaunchDescription([demo_node1, demo_node1_exit_handler])
