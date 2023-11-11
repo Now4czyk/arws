@@ -9,7 +9,8 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <!-- <depend>geometry_msgs</depend> -->
+  <!-- <depend>  <depend>OpenCV</depend>
+</depend> -->
 
   <buildtool_depend>rosidl_default_generators</buildtool_depend>
   <exec_depend>rosidl_default_runtime</exec_depend>

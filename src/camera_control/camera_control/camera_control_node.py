@@ -4,6 +4,8 @@ from rclpy.node import Node
 # this is how to import custom messages
 from ur_custom_interfaces.msg import URCommand
 
+
+
 class CameraNode (Node):
     def __init__ (self):
         super().__init__("py_test")
