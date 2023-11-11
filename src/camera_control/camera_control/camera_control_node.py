@@ -166,6 +166,7 @@ class CameraNode (Node):
                     )
 
                     self.publish_command(xPoint, yPoint, depthFrame[yForDepth][xForDepth]/10)
+                    rclpy.spin_once(self)
 
                 depthFrame = (depthFrame * (255 / 10000)).astype(np.uint8)
 
@@ -191,21 +192,29 @@ class CameraNode (Node):
         self.publisher_.publish(msg)
         print('Published command...')
 
+    def destroy(self):
+        super().destroy_node()
+
 def main (args=None):
     rclpy.init(args=args)
     node = CameraNode()
-
+    
     msg = URCommand()
-    msg.y = str("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+    msg.command = "GRAB_APPLE"
+    msg.x = str(2)
+    msg.y = str(3)
+    msg.depth = str(5) + "cm"
     node.publisher_.publish(msg)
-    
-    
 
-    rclpy.spin(node)
-
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    # rclpy.spin(node)
     # cv2.destroyAllWindows()
     # node.destroy_node()
     
+    node.destroy_node()
     rclpy.shutdown()
 
 if __name__ == "__main__":
