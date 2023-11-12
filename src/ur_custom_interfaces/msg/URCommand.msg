@@ -4,4 +4,3 @@ string command
 string x
 string y
 string depth
-# geometry_msgs/Point coordinate

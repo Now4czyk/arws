@@ -82,12 +82,9 @@ class CameraNode (Node):
         self.get_logger ().info("Hello ROS2")
         self.create_timer (0.5, self.timer_callback)
         self.publisher_ = self.create_publisher(URCommand, "custom_camera", 1)
-        self.recognizing_apples()
-
     
     def timer_callback(self):
-        self.counter_ += 1
-    
+        self.counter_ += 1    
         self.get_logger().info("[TEST LOG]:" + str(self.counter_))
 
     def recognizing_apples(self):
@@ -167,7 +164,6 @@ class CameraNode (Node):
 
                     # Publikacja do naszego tematu
                     self.publish_command(xPoint, yPoint, depthFrame[yForDepth][xForDepth]/10)
-                    rclpy.spin_once(self)
 
                 depthFrame = (depthFrame * (255 / 10000)).astype(np.uint8)
 
@@ -179,7 +175,7 @@ class CameraNode (Node):
                 cv2.imshow("depthFrame", depthFrame)
                 cv2.imshow("yolov8", yoloFrame)
 
-                if cv2.waitKey(30) == ord('q'):
+                if cv2.waitKey(1) == ord('q'):
                     break
     
     def publish_command(self, x, y, depth):
@@ -192,22 +188,12 @@ class CameraNode (Node):
         self.publisher_.publish(msg)
         print('Published command...')
 
-    def destroy(self):
-        super().destroy_node()
-
 def main (args=None):
     rclpy.init(args=args)
     node = CameraNode()
 
-    try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        pass
+    node.recognizing_apples()
 
-    # rclpy.spin(node)
-    # cv2.destroyAllWindows()
-    # node.destroy_node()
-    
     node.destroy_node()
     rclpy.shutdown()
 
