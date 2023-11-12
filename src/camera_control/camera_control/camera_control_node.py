@@ -165,6 +165,7 @@ class CameraNode (Node):
                         1, 
                     )
 
+                    # Publikacja do naszego tematu
                     self.publish_command(xPoint, yPoint, depthFrame[yForDepth][xForDepth]/10)
                     rclpy.spin_once(self)
 
@@ -177,7 +178,6 @@ class CameraNode (Node):
                 cv2.imshow("disparity", disparityFrame)
                 cv2.imshow("depthFrame", depthFrame)
                 cv2.imshow("yolov8", yoloFrame)
-                # cv2.imshow('depth', depthFrame)
 
                 if cv2.waitKey(30) == ord('q'):
                     break
@@ -198,18 +198,12 @@ class CameraNode (Node):
 def main (args=None):
     rclpy.init(args=args)
     node = CameraNode()
-    
-    msg = URCommand()
-    msg.command = "GRAB_APPLE"
-    msg.x = str(2)
-    msg.y = str(3)
-    msg.depth = str(5) + "cm"
-    node.publisher_.publish(msg)
 
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
+
     # rclpy.spin(node)
     # cv2.destroyAllWindows()
     # node.destroy_node()
