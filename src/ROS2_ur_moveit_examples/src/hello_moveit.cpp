@@ -7,6 +7,7 @@
 #include <moveit_msgs/msg/collision_object.hpp>
 #include <moveit/planning_scene/planning_scene.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
+#include "ur_custom_interfaces/msg/ur_command.hpp"
 
 int main(int argc, char *argv[])
 {

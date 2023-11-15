@@ -29,6 +29,7 @@ find_package(pluginlib REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_eigen REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(ur_custom_interfaces)
 # moveit_package()
 
 include_directories(
@@ -57,7 +58,7 @@ include_directories(
 
 add_executable(hello_moveit src/hello_moveit.cpp)
 target_include_directories(hello_moveit PUBLIC include)
-ament_target_dependencies(hello_moveit moveit_common moveit_core moveit_ros_planning moveit_ros_planning_interface rviz_visual_tools moveit_visual_tools rclcpp std_msgs)
+ament_target_dependencies(hello_moveit moveit_common moveit_core moveit_ros_planning moveit_ros_planning_interface rviz_visual_tools moveit_visual_tools rclcpp std_msgs rclcpp ur_custom_interfaces)
 
 add_executable(kinematics src/kinematics.cpp)
 target_include_directories(kinematics PUBLIC include)
