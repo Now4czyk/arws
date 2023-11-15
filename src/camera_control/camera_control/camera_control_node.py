@@ -13,6 +13,9 @@ import depthai as dai
 import logging
 import numpy as np
 
+RESOLUTION_X = 1280
+RESOLUTION_Y = 720
+
 # Closer-in minimum depth, disparity range is doubled (from 95 to 190):
 extended_disparity = False
 # Better accuracy for longer distance, fractional disparity 32-levels:
@@ -37,7 +40,7 @@ xout.setStreamName("disparity")
 xoutDepth.setStreamName("depth")
 
 # Properties
-camRgb.setPreviewSize(1280, 720)
+camRgb.setPreviewSize(RESOLUTION_X, RESOLUTION_Y)
 camRgb.setBoardSocket(dai.CameraBoardSocket.CAM_A)
 camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
 camRgb.setInterleaved(True)
@@ -67,7 +70,7 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="YOLOv8 live")
     parser.add_argument(
         "--webcam-resolution", 
-        default=[1280, 720], 
+        default=[RESOLUTION_X, RESOLUTION_Y], 
         nargs=2, 
         type=int
     )
@@ -79,7 +82,7 @@ class CameraNode (Node):
     def __init__ (self):
         super().__init__("py_test")
         self.counter_ = 0
-        self.get_logger ().info("Hello ROS2")
+        self.get_logger ().info("Hello Camera Node")
         self.create_timer (0.5, self.timer_callback)
         self.publisher_ = self.create_publisher(URCommand, "custom_camera", 1)
     
@@ -145,10 +148,10 @@ class CameraNode (Node):
                     xPoint = int(xLeft + (xRight-xLeft)/2)
                     yPoint = int(yTop + (yBottom-yTop)/2)
                     # Przeliczenie punktu z obrazu rgb na rozdzielczość kamery głębi
-                    # Rozdzielczość kamery głębi: 640x400
-                    # Rozdzielczość kamery rgb: 1280x720
-                    xForDepth = int(xPoint * 640 / 1280)
-                    yForDepth = int(yPoint * 400 / 720)
+                    # Rozdzielczość kamery głębi: 640 x 400
+                    # Rozdzielczość kamery rgb: RESOLUTION_X x RESOLUTION_Y
+                    xForDepth = int(xPoint * 640 / RESOLUTION_X)
+                    yForDepth = int(yPoint * 400 / RESOLUTION_Y)
                     # print(f'xLeft: {xLeft}, xRight: {xRight}, yTop: {yTop}, yBottom: {yBottom}')
                     # print('Depth', depthFrame[yForDepth][xForDepth], f'xD: {xForDepth}, yD: {yForDepth}, xP: {xPoint}, yP: {yPoint}')
                     cv2.circle(yoloFrame, (xPoint, yPoint), 2, (0, 0, 255), 5)
@@ -161,32 +164,55 @@ class CameraNode (Node):
                         (255, 255, 255), 
                         1, 
                     )
+                    cv2.putText(
+                        yoloFrame, 
+                        f"x:{self.get_factor(xPoint, RESOLUTION_X/2)} y:{self.get_factor(yPoint, RESOLUTION_Y/2)}", 
+                        (xPoint, yPoint+20), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 
+                        0.7, 
+                        (255, 255, 255), 
+                        1, 
+                    )
 
                     # Publikacja do naszego tematu
-                    self.publish_command(xPoint, yPoint, depthFrame[yForDepth][xForDepth]/10)
+                    self.publish_command(xPoint, yPoint, depthFrame[yForDepth][xForDepth])
 
                 depthFrame = (depthFrame * (255 / 10000)).astype(np.uint8)
 
 
                 # detections.xyxy [xLeft, yTop, xRight, yBottom]
-                # x -> (min, max) = (0, 1280)
-                # y -> (min, max) = (0, 720)
+                # x -> (min, max) = (0, RESOLUTION_X)
+                # y -> (min, max) = (0, RESOLUTION_Y)
                 cv2.imshow("disparity", disparityFrame)
                 cv2.imshow("depthFrame", depthFrame)
                 cv2.imshow("yolov8", yoloFrame)
 
                 if cv2.waitKey(1) == ord('q'):
                     break
-    
+
+    def get_factor(self, position, boundary, accuracy = 30):
+        factor = 0
+
+        if position < boundary - accuracy:
+            factor = 1
+        elif position > boundary + accuracy:
+            factor = -1
+        else:
+            factor = 0
+
+        return factor
+
     def publish_command(self, x, y, depth):
-        print('Publishing command...', x, y, depth)
+        xFactor = self.get_factor(x, RESOLUTION_X/2)
+        yFactor = self.get_factor(y, RESOLUTION_Y/2)
+
+        print('Publishing command with data:', xFactor, yFactor, depth)
         msg = URCommand()
-        msg.command = "GRAB_APPLE"
-        msg.x = str(x)
-        msg.y = str(y)
-        msg.depth = str(depth) + "cm"
+        msg.x = str(xFactor)
+        msg.y = str(yFactor)
+        msg.depth = str(depth)
         self.publisher_.publish(msg)
-        print('Published command...')
+        print('Published command')
 
 def main (args=None):
     rclpy.init(args=args)
