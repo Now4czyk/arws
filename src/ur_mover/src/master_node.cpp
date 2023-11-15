@@ -44,20 +44,23 @@ class MinimalPublisher : public rclcpp::Node
     void topic_callback(const ur_custom_interfaces::msg::URCommand::SharedPtr msg)
     {
       int x = std::stoi(msg->x);
+      int y = std::stoi(msg->y);
       RCLCPP_INFO(this->get_logger(), "Received command: %d", x);
-      if(x != prev_x){
-        is_horizontally_centered = false;
-        prev_x = x;
-        return;
-      }
+      // if(x != prev_x){
+      //   is_horizontally_centered = false;
+      //   prev_x = x;
+      //   return;
+      // }
       if(is_moving || !is_lookout_position){
-        // RCLCPP_INFO(this->get_logger(), "Robot is already moving. Ignoring command.");
+        RCLCPP_INFO(this->get_logger(), "Robot is already moving. Ignoring command.");
         return;
       }
-      if(x == 0){
-        // RCLCPP_INFO(this->get_logger(), "Robot is already centered horizontally. Ignoring command.");
+      if(x == 0 && !is_horizontally_centered){
+        RCLCPP_INFO(this->get_logger(), "Robot is already centered horizontally. Ignoring command.");
         is_horizontally_centered = true;
+        is_moving = false;
         move_group_->stop();
+        return;
       }
 
       if(x == 1 && !is_moving && !is_horizontally_centered){
@@ -69,14 +72,13 @@ class MinimalPublisher : public rclcpp::Node
         double eef_step = 0.01; // Rozdzielczość trajektorii
         // move_group_interface.setPoseTarget(waypoint);
         auto res = move_group_->computeCartesianPath(std::vector<geometry_msgs::msg::Pose> {target_pose}, eef_step, 0.0, my_plan.trajectory_);
-            // RCLCPP_INFO(this->get_logger(), "Moving robot to the right");
+            RCLCPP_INFO(this->get_logger(), "Moving robot to the right");
             // RCLCPP_INFO(this->get_logger(), "is moving: %b", is_moving);
 
         if (res != -1) {
             // RCLCPP_INFO(this->get_logger(), "is moving (should be true): %b", is_moving);
             move_group_->execute(my_plan);
             // RCLCPP_INFO(this->get_logger(), "is moving (should be false): %b", is_moving);
-            is_lookout_position = true;
             // RCLCPP_INFO(this->get_logger(), "Execution successful for the waypoint.");
         } else {
             // RCLCPP_ERROR(this->get_logger(), "Path planning failed for the waypoint.");
@@ -91,7 +93,44 @@ class MinimalPublisher : public rclcpp::Node
         double eef_step = 0.01; // Rozdzielczość trajektorii
         // move_group_interface.setPoseTarget(waypoint);
         auto res = move_group_->computeCartesianPath(std::vector<geometry_msgs::msg::Pose> {target_pose}, eef_step, 0.0, my_plan.trajectory_);
-            // RCLCPP_INFO(this->get_logger(), "Moving robot to the left");
+            RCLCPP_INFO(this->get_logger(), "Moving robot to the left");
+            // RCLCPP_INFO(this->get_logger(), "is moving: %b", is_moving);
+
+        if (res != -1) {
+            // RCLCPP_INFO(this->get_logger(), "is moving (should be true): %b", is_moving);
+            move_group_->execute(my_plan);
+            // RCLCPP_INFO(this->get_logger(), "is moving (should be false): %b", is_moving);
+            // RCLCPP_INFO(this->get_logger(), "Execution successful for the waypoint.");
+        } else {
+            // RCLCPP_ERROR(this->get_logger(), "Path planning failed for the waypoint.");
+        }
+            is_moving = false;
+      }
+
+      // MOVING IN Y
+
+      if(!is_horizontally_centered){
+        return;
+      }
+
+      if(y == 0 && !is_vertically_centered){
+        RCLCPP_INFO(this->get_logger(), "Robot is already centered vertically. Ignoring command.");
+        is_vertically_centered = true;
+        move_group_->stop();
+        is_moving = false;
+        return;
+      }
+
+      if(y == 1 && !is_moving && !is_vertically_centered){
+            is_moving = true;
+        target_pose.position.z -= 0.1;
+        moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+        move_group_->setEndEffectorLink("wrist_3_link");
+
+        double eef_step = 0.01; // Rozdzielczość trajektorii
+        // move_group_interface.setPoseTarget(waypoint);
+        auto res = move_group_->computeCartesianPath(std::vector<geometry_msgs::msg::Pose> {target_pose}, eef_step, 0.0, my_plan.trajectory_);
+            RCLCPP_INFO(this->get_logger(), "Moving robot to the bottom");
             // RCLCPP_INFO(this->get_logger(), "is moving: %b", is_moving);
 
         if (res != -1) {
@@ -99,6 +138,27 @@ class MinimalPublisher : public rclcpp::Node
             move_group_->execute(my_plan);
             // RCLCPP_INFO(this->get_logger(), "is moving (should be false): %b", is_moving);
             is_lookout_position = true;
+            // RCLCPP_INFO(this->get_logger(), "Execution successful for the waypoint.");
+        } else {
+            // RCLCPP_ERROR(this->get_logger(), "Path planning failed for the waypoint.");
+        }
+            is_moving = false;
+      } else if(y == -1 && !is_moving && !is_vertically_centered){
+              is_moving = true;
+        target_pose.position.z += 0.1;
+        moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+        move_group_->setEndEffectorLink("wrist_3_link");
+
+        double eef_step = 0.01; // Rozdzielczość trajektorii
+        // move_group_interface.setPoseTarget(waypoint);
+        auto res = move_group_->computeCartesianPath(std::vector<geometry_msgs::msg::Pose> {target_pose}, eef_step, 0.0, my_plan.trajectory_);
+            RCLCPP_INFO(this->get_logger(), "Moving robot to the top");
+            // RCLCPP_INFO(this->get_logger(), "is moving: %b", is_moving);
+
+        if (res != -1) {
+            // RCLCPP_INFO(this->get_logger(), "is moving (should be true): %b", is_moving);
+            move_group_->execute(my_plan);
+            // RCLCPP_INFO(this->get_logger(), "is moving (should be false): %b", is_moving);
             // RCLCPP_INFO(this->get_logger(), "Execution successful for the waypoint.");
         } else {
             // RCLCPP_ERROR(this->get_logger(), "Path planning failed for the waypoint.");
