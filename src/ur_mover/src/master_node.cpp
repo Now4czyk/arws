@@ -81,6 +81,8 @@ class MinimalPublisher : public rclcpp::Node
         // move_group_interface.setPoseTarget(waypoint);
         auto res = move_group_->computeCartesianPath(std::vector<geometry_msgs::msg::Pose> {target_pose}, eef_step, 0.0, my_plan.trajectory_);
             RCLCPP_INFO(this->get_logger(), "Moving robot to the right");
+
+        RCLCPP_INFO(this->get_logger(), "Requested position: %f, %f, %f", target_pose.position.x, target_pose.position.y, target_pose.position.z);
             // RCLCPP_INFO(this->get_logger(), "is moving: %b", is_moving);
 
         if (res != -1) {
@@ -102,6 +104,7 @@ class MinimalPublisher : public rclcpp::Node
         // move_group_interface.setPoseTarget(waypoint);
         auto res = move_group_->computeCartesianPath(std::vector<geometry_msgs::msg::Pose> {target_pose}, eef_step, 0.0, my_plan.trajectory_);
             RCLCPP_INFO(this->get_logger(), "Moving robot to the left");
+        RCLCPP_INFO(this->get_logger(), "Requested position: %f, %f, %f", target_pose.position.x, target_pose.position.y, target_pose.position.z);
             // RCLCPP_INFO(this->get_logger(), "is moving: %b", is_moving);
 
         if (res != -1) {
