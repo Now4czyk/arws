@@ -82,9 +82,11 @@ class CameraNode (Node):
     def __init__ (self):
         super().__init__("py_test")
         self.counter_ = 0
-        self.get_logger ().info("Hello Camera Node")
+        self.get_logger ().info("Hello XXXXXXXXXXXX Camera Node")
         self.create_timer (0.5, self.timer_callback)
         self.publisher_ = self.create_publisher(URCommand, "custom_camera", 1)
+        self.prevX = 0
+        self.prevY = 0
     
     def timer_callback(self):
         self.counter_ += 1    
@@ -111,6 +113,7 @@ class CameraNode (Node):
             previewQueue = device.getOutputQueue('preview')
             disparityQueue = device.getOutputQueue(name="disparity", maxSize=4, blocking=False)
             depthQueue = device.getOutputQueue(name="depth", maxSize=4, blocking=False)
+ 
 
             while True:
                 previewFrame = previewQueue.get().getFrame()
@@ -175,7 +178,16 @@ class CameraNode (Node):
                     )
 
                     # Publikacja do naszego tematu
-                    self.publish_command(xPoint, yPoint, depthFrame[yForDepth][xForDepth])
+                    xFactCurr = self.get_factor(xPoint, RESOLUTION_X/2)
+                    yFactCurr = self.get_factor(yPoint, RESOLUTION_Y/2)
+                    
+                    if xFactCurr == self.prevX and yFactCurr == self.prevY:
+                        pass
+                    else:
+                        self.publish_command(xPoint, yPoint, depthFrame[yForDepth][xForDepth])
+
+                    self.prevX = xFactCurr
+                    self.prevY = yFactCurr
 
                 depthFrame = (depthFrame * (255 / 10000)).astype(np.uint8)
 
@@ -194,9 +206,9 @@ class CameraNode (Node):
         factor = 0
 
         if position < boundary - accuracy:
-            factor = 1
-        elif position > boundary + accuracy:
             factor = -1
+        elif position > boundary + accuracy:
+            factor = 1
         else:
             factor = 0
 
@@ -204,12 +216,12 @@ class CameraNode (Node):
 
     def publish_command(self, x, y, depth):
         xFactor = self.get_factor(x, RESOLUTION_X/2)
-        yFactor = self.get_factor(y, RESOLUTION_Y/2)
+        yFactor = self.get_factor(0, RESOLUTION_Y/2)
 
         print('Publishing command with data:', xFactor, yFactor, depth)
         msg = URCommand()
         msg.x = str(xFactor)
-        msg.y = str(yFactor)
+        msg.y = str(0)
         msg.depth = str(depth)
         self.publisher_.publish(msg)
         print('Published command')
