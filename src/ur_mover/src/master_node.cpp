@@ -29,6 +29,9 @@ class MinimalPublisher : public rclcpp::Node
     is_depth_reached(false), was_centered_message_shown(false)
     {
       RCLCPP_INFO(this->get_logger(), "Node started. Awaiting commands...");
+      RCLCPP_INFO(this->get_logger(), "=======================================================");
+      RCLCPP_INFO(this->get_logger(), "SETUP LOGS");
+      RCLCPP_INFO(this->get_logger(), "=======================================================");
       subscription_ = this->create_subscription<ur_custom_interfaces::msg::URCommand>(
       "custom_camera", 1, std::bind(&MinimalPublisher::topic_callback, this, _1));
 
@@ -104,17 +107,22 @@ class MinimalPublisher : public rclcpp::Node
       
       bool const is_robot_centered = is_horizontally_centered && is_vertically_centered;
       if(is_robot_centered && !was_centered_message_shown) {
-        RCLCPP_INFO(this->get_logger(), "Robot is centered");
+        RCLCPP_INFO(this->get_logger(), "Robot is centered. Started timer.");
         was_centered_message_shown = true;
+        end_timer = this->get_clock()->now() + rclcpp::Duration(3s);
       }
       else if(!is_robot_centered) {
         return;
       }
+      timer = this->get_clock()->now();
 
+      if(timer < end_timer) {
+        return;
+      }
 
       if(!is_moving && !is_depth_reached) {
         
-        RCLCPP_INFO(this->get_logger(), "Moving robot forward by %d", depth);
+        RCLCPP_INFO(this->get_logger(), "Moving robot forward by %f", depth);
         target_pose.position.y += depth;
 
         bool const forward_res = this->move(target_pose, "Moving robot forward");
@@ -132,6 +140,7 @@ class MinimalPublisher : public rclcpp::Node
     }
 
     void move_to_lookout_position(){
+      RCLCPP_INFO(this->get_logger(), "=======================================================");
       bool const move_res = move(*lookout_pos, "Moving to lookout position");
       if(move_res){
         is_lookout_position = true;
@@ -146,7 +155,7 @@ class MinimalPublisher : public rclcpp::Node
 
     float sanitize_depth(std::string raw_depth){
       float depth = std::stof(raw_depth) / 1000;
-      if(depth < 0.5){
+      if(depth > 0.5){
         depth = 0.5;
       }
       else if(depth < 0){
@@ -188,6 +197,8 @@ class MinimalPublisher : public rclcpp::Node
     bool is_depth_reached;
     int prev_x;
     bool was_centered_message_shown;
+    rclcpp::Time end_timer;
+    rclcpp::Time timer;
     geometry_msgs::msg::Pose* lookout_pos;
     moveit::planning_interface::MoveGroupInterface* move_group_;
     geometry_msgs::msg::Pose target_pose;
