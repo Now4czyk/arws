@@ -424,7 +424,7 @@
 <link name="table">
   <visual>
     <geometry>
-      <box size="0.2 0.2 0.5"/>
+      <box size="0.3 0.3 0.5"/>
     </geometry>
     <material name="red">
       <color rgba="0.0 1.0 0.0 1.0"/>
@@ -432,7 +432,7 @@
   </visual>
   <collision>
     <geometry>
-      <box size="0.2 0.2 0.5"/>
+      <box size="0.3 0.3 0.5"/>
     </geometry>
   </collision>
   <inertial>

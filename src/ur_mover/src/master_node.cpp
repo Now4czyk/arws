@@ -25,7 +25,8 @@ class MinimalPublisher : public rclcpp::Node
   public:
     MinimalPublisher(std::shared_ptr<rclcpp::Node> move_group_node, geometry_msgs::msg::Pose* lookout_pos)
     : Node("master_node"), is_lookout_position(false), is_horizontally_centered(false), 
-    is_vertically_centered(false), is_moving(false), lookout_pos(lookout_pos), target_pose(*lookout_pos), prev_x(0)
+    is_vertically_centered(false), is_moving(false), lookout_pos(lookout_pos), target_pose(*lookout_pos), prev_x(0),
+    is_depth_reached(false)
     {
       RCLCPP_INFO(this->get_logger(), "Node started. Awaiting commands...");
       subscription_ = this->create_subscription<ur_custom_interfaces::msg::URCommand>(
@@ -45,7 +46,13 @@ class MinimalPublisher : public rclcpp::Node
     {
       int x = std::stoi(msg->x);
       int y = std::stoi(msg->y);
-      RCLCPP_INFO(this->get_logger(), "Received command: %d", x);
+      float depth = std::stof(msg->depth) / 1000;
+      RCLCPP_INFO(this->get_logger(), "Received command: %f", depth);
+
+      if(is_depth_reached && is_horizontally_centered && is_vertically_centered) {
+        RCLCPP_INFO(this->get_logger(), "At apple position");
+        return;
+      }
       // if(x != prev_x){
       //   is_horizontally_centered = false;
       //   prev_x = x;
@@ -110,6 +117,7 @@ class MinimalPublisher : public rclcpp::Node
       // MOVING IN Y
 
       if(!is_horizontally_centered){
+        RCLCPP_INFO(this->get_logger(), "Robot is not centered horizontally. Ignoring command.");
         return;
       }
 
@@ -167,6 +175,41 @@ class MinimalPublisher : public rclcpp::Node
       }
       
       // RCLCPP_INFO(this->get_logger(), "I heard: '%f'", curr_pos.pose.position.x);
+      RCLCPP_INFO(this->get_logger(), "Finished centering");
+
+      // if(!is_horizontally_centered && !is_vertically_centered) {
+      //   RCLCPP_INFO(this->get_logger(), "Robot is not centered. Ignoring command.");
+      //   return;
+      // }
+
+      // RCLCPP_INFO(this->get_logger(), "Robot is centered. Moving forward...");
+
+
+      // if(!is_moving && !is_depth_reached) {
+      //   RCLCPP_INFO(this->get_logger(), "Moving robot forward by %d", depth);
+      //   is_moving = true;
+      //   target_pose.position.y += depth;
+      //   moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+      //   move_group_->setEndEffectorLink("wrist_3_link");
+
+      //   double eef_step = 0.01; // Rozdzielczość trajektorii
+      //   // move_group_interface.setPoseTarget(waypoint);
+      //   auto res = move_group_->computeCartesianPath(std::vector<geometry_msgs::msg::Pose> {target_pose}, eef_step, 0.0, my_plan.trajectory_);
+      //       RCLCPP_INFO(this->get_logger(), "Moving robot forward");
+      //       // RCLCPP_INFO(this->get_logger(), "is moving: %b", is_moving);
+
+      //   if (res != -1) {
+      //       // RCLCPP_INFO(this->get_logger(), "is moving (should be true): %b", is_moving);
+      //       move_group_->execute(my_plan);
+      //       // RCLCPP_INFO(this->get_logger(), "is moving (should be false): %b", is_moving);
+      //       // RCLCPP_INFO(this->get_logger(), "Execution successful for the waypoint.");
+      //   } else {
+      //       // RCLCPP_ERROR(this->get_logger(), "Path planning failed for the waypoint.");
+      //   }
+      //       is_moving = false;
+      //       is_depth_reached = true;
+      // }
+
     }
 
     void move_to_lookout_position(){
@@ -196,6 +239,7 @@ class MinimalPublisher : public rclcpp::Node
     bool is_horizontally_centered;
     bool is_vertically_centered;
     bool is_moving;
+    bool is_depth_reached;
     int prev_x;
     geometry_msgs::msg::Pose* lookout_pos;
     moveit::planning_interface::MoveGroupInterface* move_group_;
@@ -205,13 +249,13 @@ class MinimalPublisher : public rclcpp::Node
 int main(int argc, char * argv[])
 {
   geometry_msgs::msg::Pose lookout_pos;
-  lookout_pos.orientation.w = 0.693492;
-  lookout_pos.orientation.x = -0.720356;
-  lookout_pos.orientation.y = 0.008474;
-  lookout_pos.orientation.z = 0.009133;
-  lookout_pos.position.x = 0.125166;
-  lookout_pos.position.y = 0.272431;
-  lookout_pos.position.z = 0.346031;
+  lookout_pos.orientation.w = 0.714969;
+  lookout_pos.orientation.x = -0.698944;
+  lookout_pos.orientation.y = 0.007149;
+  lookout_pos.orientation.z = -0.015674;
+  lookout_pos.position.x = -0.125252;
+  lookout_pos.position.y = 0.232245;
+  lookout_pos.position.z = 0.282081;
   rclcpp::init(argc, argv);
   rclcpp::NodeOptions node_options;
   node_options.automatically_declare_parameters_from_overrides(true);
