@@ -63,7 +63,7 @@ class MinimalPublisher : public rclcpp::Node
         return;
       }
 
-      if(x == 1 && !is_moving && !is_horizontally_centered){
+      if(x == -1 && !is_moving && !is_horizontally_centered){
             is_moving = true;
         target_pose.position.x += 0.1;
         moveit::planning_interface::MoveGroupInterface::Plan my_plan;
@@ -84,7 +84,7 @@ class MinimalPublisher : public rclcpp::Node
             // RCLCPP_ERROR(this->get_logger(), "Path planning failed for the waypoint.");
         }
             is_moving = false;
-      } else if(x == -1 && !is_moving && !is_horizontally_centered){
+      } else if(x == 1 && !is_moving && !is_horizontally_centered){
               is_moving = true;
         target_pose.position.x -= 0.1;
         moveit::planning_interface::MoveGroupInterface::Plan my_plan;
