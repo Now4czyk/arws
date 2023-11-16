@@ -15,6 +15,8 @@ import numpy as np
 
 RESOLUTION_X = 1280
 RESOLUTION_Y = 720
+ACCURACY_X = 100
+ACCURACY_Y = 80
 
 # Closer-in minimum depth, disparity range is doubled (from 95 to 190):
 extended_disparity = False
@@ -82,9 +84,11 @@ class CameraNode (Node):
     def __init__ (self):
         super().__init__("py_test")
         self.counter_ = 0
-        self.get_logger ().info("Hello Camera Node")
+        self.get_logger ().info("Hello XXXXXXXXXXXX Camera Node")
         self.create_timer (0.5, self.timer_callback)
         self.publisher_ = self.create_publisher(URCommand, "custom_camera", 1)
+        # self.prevX = 0
+        # self.prevY = 0
     
     def timer_callback(self):
         self.counter_ += 1    
@@ -92,13 +96,7 @@ class CameraNode (Node):
 
     def recognizing_apples(self):
         with dai.Device(pipeline) as device:
-            args = parse_arguments()
-            frame_width, frame_height = args.webcam_resolution
             logging.getLogger("ultralytics").setLevel(logging.ERROR)
-
-            cap = cv2.VideoCapture(0)
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, frame_width)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, frame_height)
 
             model = YOLO("yolov8n.pt")
 
@@ -174,8 +172,28 @@ class CameraNode (Node):
                         1, 
                     )
 
+                    # p1 = RESOLUTION_X/2 - ACCURACY_X, RESOLUTION_Y/2 - ACCURACY_Y
+                    # p2 = RESOLUTION_X/2 + ACCURACY_X, RESOLUTION_Y/2 + ACCURACY_Y
+
+                    # cv2.rectangle(
+                    #     yoloFrame, 
+                    #     p1, 
+                    #     p2, 
+                    #     (0, 255, 0), 
+                    #     1
+                    # )
+
                     # Publikacja do naszego tematu
+                    # xFactCurr = self.get_factor(xPoint, RESOLUTION_X/2)
+                    # yFactCurr = self.get_factor(yPoint, RESOLUTION_Y/2)
+                    
+                    # if xFactCurr == self.prevX and yFactCurr == self.prevY:
+                    #     pass
+                    # else:
                     self.publish_command(xPoint, yPoint, depthFrame[yForDepth][xForDepth])
+
+                    # self.prevX = xFactCurr
+                    # self.prevY = yFactCurr
 
                 depthFrame = (depthFrame * (255 / 10000)).astype(np.uint8)
 
@@ -194,17 +212,17 @@ class CameraNode (Node):
         factor = 0
 
         if position < boundary - accuracy:
-            factor = 1
-        elif position > boundary + accuracy:
             factor = -1
+        elif position > boundary + accuracy:
+            factor = 1
         else:
             factor = 0
 
         return factor
 
     def publish_command(self, x, y, depth):
-        xFactor = self.get_factor(x, RESOLUTION_X/2)
-        yFactor = self.get_factor(y, RESOLUTION_Y/2)
+        xFactor = self.get_factor(x, RESOLUTION_X/2, ACCURACY_X)
+        yFactor = self.get_factor(y, RESOLUTION_Y/2, ACCURACY_Y)
 
         print('Publishing command with data:', xFactor, yFactor, depth)
         msg = URCommand()
