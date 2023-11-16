@@ -29,8 +29,8 @@ class MinimalPublisher : public rclcpp::Node
     is_depth_reached(false)
     {
       RCLCPP_INFO(this->get_logger(), "Node started. Awaiting commands...");
-      subscription_ = this->create_subscription<ur_custom_interfaces::msg::URCommand>(
-      "custom_camera", 1, std::bind(&MinimalPublisher::topic_callback, this, _1));
+      // subscription_ = this->create_subscription<ur_custom_interfaces::msg::URCommand>(
+      // "custom_camera", 1, std::bind(&MinimalPublisher::topic_callback, this, _1));
 
       move_group_ = new moveit::planning_interface::MoveGroupInterface(move_group_node, "ur_manipulator");
       move_group_->setMaxVelocityScalingFactor(0.1);
@@ -224,28 +224,43 @@ class MinimalPublisher : public rclcpp::Node
     }
 
     void move_to_lookout_position(){
+      bool const move_res = move(*lookout_pos, "Moving to lookout position");
+      if(move_res){
+        is_lookout_position = true;
+        RCLCPP_INFO(this->get_logger(), "Arrived at lookout position.");
+      }
+      else {
+        RCLCPP_INFO(this->get_logger(), "Could not arrive at lookout position. Shuting down.");
+        rclcpp::shutdown();
+      }
+
+    }
+
+    bool move(geometry_msgs::msg::Pose target_pose, const char * log_message = "Moving robot"){
       is_moving = true;
-      RCLCPP_INFO(this->get_logger(), "Moving to lookout position...");
-
       moveit::planning_interface::MoveGroupInterface::Plan my_plan;
-      // my_plan.trajectory_.joint_trajectory.header.stamp.nanosec *= 2;
-
+      move_group_->setEndEffectorLink("wrist_3_link");
 
       double eef_step = 0.01; // Rozdzielczość trajektorii
-        // move_group_interface.setPoseTarget(waypoint);
-        auto res = move_group_->computeCartesianPath(std::vector<geometry_msgs::msg::Pose> {*lookout_pos}, eef_step, 0.0, my_plan.trajectory_);
+      auto res = move_group_->computeCartesianPath(std::vector<geometry_msgs::msg::Pose> {target_pose}, eef_step, 0.0, my_plan.trajectory_);
+      RCLCPP_INFO(this->get_logger(), log_message);
 
-        if (res != -1) {
-            move_group_->execute(my_plan);
-            is_lookout_position = true;
+      if (res != -1) {
+        auto move_res = move_group_->execute(my_plan);
+          if(move_res == moveit::planning_interface::MoveItErrorCode::SUCCESS){
+            is_moving = false;
             RCLCPP_INFO(this->get_logger(), "Execution successful for the waypoint.");
+            return true;
+          } else {
+            RCLCPP_ERROR(this->get_logger(), "Execution failed for the waypoint.");
+          }
         } else {
-            RCLCPP_ERROR(this->get_logger(), "Path planning failed for the waypoint.");
+          RCLCPP_ERROR(this->get_logger(), "Failed to plan the trajectory");
         }
         is_moving = false;
-
-      RCLCPP_INFO(this->get_logger(), "Arrived at lookout position.");
+        return false;
     }
+
     rclcpp::Subscription<ur_custom_interfaces::msg::URCommand>::SharedPtr subscription_;
     bool is_lookout_position;
     bool is_horizontally_centered;
