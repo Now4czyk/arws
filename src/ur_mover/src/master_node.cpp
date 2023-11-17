@@ -26,7 +26,7 @@ class MinimalPublisher : public rclcpp::Node
     MinimalPublisher(std::shared_ptr<rclcpp::Node> move_group_node, geometry_msgs::msg::Pose* lookout_pos)
     : Node("master_node"), is_lookout_position(false), is_horizontally_centered(false), 
     is_vertically_centered(false), is_moving(false), lookout_pos(lookout_pos), target_pose(*lookout_pos), prev_x(0),
-    is_depth_reached(false), was_centered_message_shown(false)
+    is_depth_reached(false), was_centered_message_shown(false), depth(0.0)
     {
       RCLCPP_INFO(this->get_logger(), "Node started. Awaiting commands...");
       RCLCPP_INFO(this->get_logger(), "=======================================================");
@@ -53,8 +53,14 @@ class MinimalPublisher : public rclcpp::Node
       RCLCPP_INFO(this->get_logger(), "=======================================================");
       int x = std::stoi(msg->x);
       int y = std::stoi(msg->y);
-      float depth = sanitize_depth(msg->depth);
+      if(!is_moving) {
+        depth = sanitize_depth(msg->depth);
+      }
       RCLCPP_INFO(this->get_logger(), "Received commands: x:%i, y: %i, depth: %f", x, y, depth);
+
+      if(depth > 0.0 && depth < 0.5){
+        depths.push_back(depth);
+      }
 
       if(is_depth_reached && is_horizontally_centered && is_vertically_centered) {
         RCLCPP_INFO(this->get_logger(), "At apple position");
@@ -120,7 +126,32 @@ class MinimalPublisher : public rclcpp::Node
         return;
       }
 
+      if(depth < 0.01) {
+        RCLCPP_INFO(this->get_logger(), "Depth too small. Awaiting another reading.");
+        return;
+      }
+      if (depth > 0.5) {
+        RCLCPP_INFO(this->get_logger(), "Depth too big. Awaiting another reading.");
+        return;
+      }
+
       if(!is_moving && !is_depth_reached) {
+        // float depth_calc = 0;
+        // for(auto const &d : depths){
+        //   depth_calc += d;
+        // }
+        // depth_calc /= depths.size();
+
+        // including camera offset
+        target_pose.position.z += 0.055;
+        bool const offset_res = this->move(target_pose, "Applying camera offset");
+        if(offset_res){
+          RCLCPP_INFO(this->get_logger(), "Applied camera offset");
+        }
+        else {
+          RCLCPP_INFO(this->get_logger(), "Could not apply camera offset. Shuting down.");
+          rclcpp::shutdown();
+        }
         
         RCLCPP_INFO(this->get_logger(), "Moving robot forward by %f", depth);
         target_pose.position.y += depth;
@@ -197,6 +228,8 @@ class MinimalPublisher : public rclcpp::Node
     bool is_depth_reached;
     int prev_x;
     bool was_centered_message_shown;
+    float depth;
+    std::vector<float> depths;
     rclcpp::Time end_timer;
     rclcpp::Time timer;
     geometry_msgs::msg::Pose* lookout_pos;
@@ -211,9 +244,9 @@ int main(int argc, char * argv[])
   lookout_pos.orientation.x = -0.698944;
   lookout_pos.orientation.y = 0.007149;
   lookout_pos.orientation.z = -0.015674;
-  lookout_pos.position.x = -0.136556;
-  lookout_pos.position.y = 0.188343;
-  lookout_pos.position.z = 0.444308;
+  lookout_pos.position.x = -0.132976;
+  lookout_pos.position.y = 0.133019;
+  lookout_pos.position.z = 0.433306;
   rclcpp::init(argc, argv);
   rclcpp::NodeOptions node_options;
   node_options.automatically_declare_parameters_from_overrides(true);
