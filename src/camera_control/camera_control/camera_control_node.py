@@ -87,8 +87,6 @@ class CameraNode (Node):
         self.get_logger ().info("Hello XXXXXXXXXXXX Camera Node")
         self.create_timer (0.5, self.timer_callback)
         self.publisher_ = self.create_publisher(URCommand, "custom_camera", 1)
-        # self.prevX = 0
-        # self.prevY = 0
     
     def timer_callback(self):
         self.counter_ += 1    
@@ -135,8 +133,16 @@ class CameraNode (Node):
 
                 objectBounds = detections.xyxy
 
-                # print('SHARE yoloFrame', yoloFrame.shape)
-                # print('SHARE depthFrame', depthFrame.shape)
+                p1 = (int(RESOLUTION_X/2 - ACCURACY_X), int(RESOLUTION_Y/2 - ACCURACY_Y))
+                p2 = (int(RESOLUTION_X/2 + ACCURACY_X), int(RESOLUTION_Y/2 + ACCURACY_Y))
+
+                cv2.rectangle(
+                    yoloFrame, 
+                    p1, 
+                    p2, 
+                    (255, 0, 0), 
+                    1
+                )
 
                 if len(objectBounds) > 0:
                     xLeft = objectBounds[0][0]
@@ -164,7 +170,7 @@ class CameraNode (Node):
                     )
                     cv2.putText(
                         yoloFrame, 
-                        f"x:{self.get_factor(xPoint, RESOLUTION_X/2)} y:{self.get_factor(yPoint, RESOLUTION_Y/2)}", 
+                        f"x:{self.get_factor(xPoint, RESOLUTION_X/2, ACCURACY_X)} y:{self.get_factor(yPoint, RESOLUTION_Y/2, ACCURACY_Y)}", 
                         (xPoint, yPoint+20), 
                         cv2.FONT_HERSHEY_SIMPLEX, 
                         0.7, 
@@ -172,28 +178,8 @@ class CameraNode (Node):
                         1, 
                     )
 
-                    # p1 = RESOLUTION_X/2 - ACCURACY_X, RESOLUTION_Y/2 - ACCURACY_Y
-                    # p2 = RESOLUTION_X/2 + ACCURACY_X, RESOLUTION_Y/2 + ACCURACY_Y
 
-                    # cv2.rectangle(
-                    #     yoloFrame, 
-                    #     p1, 
-                    #     p2, 
-                    #     (0, 255, 0), 
-                    #     1
-                    # )
-
-                    # Publikacja do naszego tematu
-                    # xFactCurr = self.get_factor(xPoint, RESOLUTION_X/2)
-                    # yFactCurr = self.get_factor(yPoint, RESOLUTION_Y/2)
-                    
-                    # if xFactCurr == self.prevX and yFactCurr == self.prevY:
-                    #     pass
-                    # else:
                     self.publish_command(xPoint, yPoint, depthFrame[yForDepth][xForDepth])
-
-                    # self.prevX = xFactCurr
-                    # self.prevY = yFactCurr
 
                 depthFrame = (depthFrame * (255 / 10000)).astype(np.uint8)
 
