@@ -1,27 +1,52 @@
-#!/usr/bin/env python3
-import rclpy
-from rclpy.node import Node
-from std_msgs.msg import String
-import std_msgs
+import socket
+import numpy as np
 
-class GripperNode (Node):
-    def __init__ (self):
-        super().__init__("py_testt")
-        self.counter_ = 0
-        self.get_logger ().info("Hello  Gripper Node")
-        self.publisher_ = self.create_publisher(std_msgs.msg.String, "urscript_interface", 1)
-        ms = std_msgs.msg.String()
-        ms.data = self.generate_string()
+class Gripper:
+    def __init__(self, ip, port_read, port_write):
+        """ Opens connection between a root and a host robot """
+        assert isinstance(ip, str)
+        assert isinstance(port_read, int) or isinstance(port_read, str)
+        assert isinstance(port_write, int) or isinstance(port_write, str)
+        if type(port_read) is str:
+            port_read = int(port_read)
 
-        self.publisher_.publish(ms)
-        print("Published message")
+        if type(port_write) is str:
+            port_write = int(port_write)
+
+        self.ip = ip
+        self.port_write = port_write
+        self.port_read = port_read
+        self.coordinates_mapping = None
+
+        try:
+            self.socket_read = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket_write = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket_read.connect((self.ip, self.port_read))
+            self.socket_write.connect((self.ip, self.port_write))
+            self.socket_write.settimeout(5)
+            self.socket_read.settimeout(5)
+
+            print("[Socket -- IP: {0}. Write port: {1}, read port: {2}]\n".format(ip, self.port_write, self.port_read))
+        except(socket.error, exc):
+            print("[Socket cannot be created. Exception occured:\n{0}]\n".format(exc))
+
+        self.chunk_size = 8
+        self.num_chunks = 6
+        self.start_chunk_cartesian = 444
+        self.start_chunk_joint = 252
+        self.stop_chunk_cartesian = self.start_chunk_cartesian + self.num_chunks * self.chunk_size
+        self.stop_chunk_joint = self.start_chunk_joint + self.num_chunks * self.chunk_size
+        self.ur_package_size = 1060
+        self.vec = None
+
+    def __del__(self):
+        """ Closes sockets created during initialization. """
+        self.socket_read.close()
+        self.socket_write.close()
+        print("\n[Sockets succesfully closed.]\n".format(self.ip))
     
-    def generate_string(self):
-        ms = self.rg6_cmd()
-        return ms
-
-    def rg6_cmd(self, range_open=4, force=40):
-        cmd_str = "def rg2ProgOpen():\n";
+    def rg6_cmd(self, range_open, force=50):
+        cmd_str = "def rg6ProgOpen():\n";
         cmd_str += "\ttextmsg(\"inside RG6 function called\")\n";
 
         cmd_str += "\ttarget_width={0}\n".format(range_open);
@@ -175,14 +200,25 @@ class GripperNode (Node):
 
         return cmd_str
 
-def main (args=None):
-    rclpy.init(args=args)
-    node = GripperNode()
+    def grip(self, range_open):
+        """
+        Sends command to open the RG6 gripper.
+        :param range_open: number in [cm]
+        :return: void
+        """
+        assert isinstance(range_open, float) or isinstance(range_open, int)
+        command = self.rg6_cmd(range_open)
+        self.socket_write.send(command)
 
-    rclpy.spin(node)
+if __name__ == '__main__':
+    gripper = Gripper("192.168.1.101", 50002, 50003)
 
-    node.destroy_node()
-    rclpy.shutdown()
 
-if __name__ == "__main__":
-    main()
+
+
+
+
+
+
+
+

@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             "camera_control_node = camera_control.camera_control_node:main"
+            # "gripper_control_node = camera_control.gripper_control_node:main"
         ],
     },
 )
