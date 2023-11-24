@@ -1,185 +1,228 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
-import std_msgs
+# this is how to import custom messages
+from ur_custom_interfaces.msg import URCommand
+import cv2
+import argparse
 
-class GripperNode (Node):
+from ultralytics import YOLO
+import supervision as sv
+
+import depthai as dai
+import logging
+import numpy as np
+
+RESOLUTION_X = 1280
+RESOLUTION_Y = 720
+ACCURACY_X = 100
+ACCURACY_Y = 80
+
+# Closer-in minimum depth, disparity range is doubled (from 95 to 190):
+extended_disparity = False
+# Better accuracy for longer distance, fractional disparity 32-levels:
+subpixel = False
+# Better handling for occlusions:
+lr_check = True
+
+# Create pipeline
+pipeline = dai.Pipeline()
+
+# Define source and outputs
+camRgb = pipeline.create(dai.node.ColorCamera)
+xoutPreview = pipeline.create(dai.node.XLinkOut)
+monoLeft = pipeline.create(dai.node.MonoCamera)
+monoRight = pipeline.create(dai.node.MonoCamera)
+depth = pipeline.create(dai.node.StereoDepth)
+xout = pipeline.create(dai.node.XLinkOut)
+xoutDepth = pipeline.create(dai.node.XLinkOut)
+
+xoutPreview.setStreamName("preview")
+xout.setStreamName("disparity")
+xoutDepth.setStreamName("depth")
+
+# Properties
+camRgb.setPreviewSize(RESOLUTION_X, RESOLUTION_Y)
+camRgb.setBoardSocket(dai.CameraBoardSocket.CAM_A)
+camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+camRgb.setInterleaved(True)
+camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
+monoLeft.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
+monoLeft.setCamera("left")
+monoRight.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
+monoRight.setCamera("right")
+
+# Create a node that will produce the depth map (using disparity output as it's easier to visualize depth this way)
+depth.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.HIGH_DENSITY)
+# Options: MEDIAN_OFF, KERNEL_3x3, KERNEL_5x5, KERNEL_7x7 (default)
+depth.initialConfig.setMedianFilter(dai.MedianFilter.KERNEL_7x7)
+# depth.initialConfig.setConfidenceThreshold(200)
+depth.setLeftRightCheck(lr_check)
+depth.setExtendedDisparity(extended_disparity)
+depth.setSubpixel(subpixel)
+
+# Linking
+camRgb.preview.link(xoutPreview.input)
+monoLeft.out.link(depth.left)
+monoRight.out.link(depth.right)
+depth.disparity.link(xout.input)
+depth.depth.link(xoutDepth.input)
+
+def parse_arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="YOLOv8 live")
+    parser.add_argument(
+        "--webcam-resolution", 
+        default=[RESOLUTION_X, RESOLUTION_Y], 
+        nargs=2, 
+        type=int
+    )
+    args = parser.parse_args()
+    return args
+
+
+class CameraNode (Node):
     def __init__ (self):
-        super().__init__("py_testt")
+        super().__init__("py_test")
         self.counter_ = 0
-        self.get_logger ().info("Hello  Gripper Node")
-        self.publisher_ = self.create_publisher(std_msgs.msg.String, "urscript_interface", 1)
-        ms = std_msgs.msg.String()
-        ms.data = self.generate_string()
-
-        self.publisher_.publish(ms)
-        print("Published message")
+        self.get_logger ().info("Hello XXXXXXXXXXXX Camera Node")
+        self.create_timer (0.5, self.timer_callback)
+        self.publisher_ = self.create_publisher(URCommand, "custom_camera", 1)
     
-    def generate_string(self):
-        ms = self.rg6_cmd()
-        return ms
+    def timer_callback(self):
+        self.counter_ += 1    
+        self.get_logger().info("[TEST LOG]:" + str(self.counter_))
 
-    def rg6_cmd(self, range_open=4, force=40):
-        cmd_str = "def rg2ProgOpen():\n";
-        cmd_str += "\ttextmsg(\"inside RG6 function called\")\n";
+    def recognizing_apples(self):
+        with dai.Device(pipeline) as device:
+            logging.getLogger("ultralytics").setLevel(logging.ERROR)
 
-        cmd_str += "\ttarget_width={0}\n".format(range_open);
-        cmd_str += "\ttarget_force={0}\n".format(force);
-        cmd_str += "\tpayload=1.0\n";
-        cmd_str += "\tset_payload1=False\n";
-        cmd_str += "\tdepth_compensation=False\n";
-        cmd_str += "\tslave=False\n";
+            model = YOLO("yolov8n.pt")
 
-        cmd_str += "\ttimeout = 0\n";
-        cmd_str += "\twhile get_digital_in(9) == False:\n";
-        cmd_str += "\t\ttextmsg(\"inside while\")\n";
-        cmd_str += "\t\tif timeout > 400:\n";
-        cmd_str += "\t\t\tbreak\n";
-        cmd_str += "\t\tend\n";
-        cmd_str += "\t\ttimeout = timeout+1\n";
-        cmd_str += "\t\tsync()\n";
-        cmd_str += "\tend\n";
-        cmd_str += "\ttextmsg(\"outside while\")\n";
+            box_annotator = sv.BoxAnnotator(
+                thickness=1,
+                text_thickness=1,
+                text_scale=1
+            )
 
-        cmd_str += "\tdef bit(input):\n";
-        cmd_str += "\t\tmsb=65536\n";
-        cmd_str += "\t\tlocal i=0\n";
-        cmd_str += "\t\tlocal output=0\n";
-        cmd_str += "\t\twhile i<17:\n";
-        cmd_str += "\t\t\tset_digital_out(8,True)\n";
-        cmd_str += "\t\t\tif input>=msb:\n";
-        cmd_str += "\t\t\t\tinput=input-msb\n";
-        cmd_str += "\t\t\t\tset_digital_out(9,False)\n";
-        cmd_str += "\t\t\telse:\n";
-        cmd_str += "\t\t\t\tset_digital_out(9,True)\n";
-        cmd_str += "\t\t\tend\n";
-        cmd_str += "\t\t\tif get_digital_in(8):\n";
-        cmd_str += "\t\t\t\tout=1\n";
-        cmd_str += "\t\t\tend\n";
-        cmd_str += "\t\t\tsync()\n";
-        cmd_str += "\t\t\tset_digital_out(8,False)\n";
-        cmd_str += "\t\t\tsync()\n";
-        cmd_str += "\t\t\tinput=input*2\n";
-        cmd_str += "\t\t\toutput=output*2\n";
-        cmd_str += "\t\t\ti=i+1\n";
-        cmd_str += "\t\tend\n";
-        cmd_str += "\t\treturn output\n";
-        cmd_str += "\tend\n";
-        cmd_str += "\ttextmsg(\"outside bit definition\")\n";
-        #TU GRZEBIE
-        cmd_str += "\ttarget_width=target_width+9.2\n";
-        cmd_str += "\tif target_force>120:\n";
-        cmd_str += "\t\ttarget_force=120\n";
-        cmd_str += "\tend\n";
-        cmd_str += "\tif target_force<25:\n";
-        cmd_str += "\t\ttarget_force=25\n";
-        cmd_str += "\tend\n";
-        cmd_str += "\tif target_width>160:\n";
-        cmd_str += "\t\ttarget_width=160\n";
-        cmd_str += "\tend\n";
-        cmd_str += "\tif target_width<0:\n";
-        cmd_str += "\t\ttarget_width=0\n";
-        cmd_str += "\tend\n";
-        cmd_str += "\trg_data=floor(target_width)*4\n";
-        cmd_str += "\trg_data=rg_data+floor(target_force/5)*4*161\n";
-        cmd_str += "\tif slave:\n";
-        cmd_str += "\t\trg_data=rg_data+16384\n";
-        cmd_str += "\tend\n";
+            previewQueue = device.getOutputQueue('preview')
+            disparityQueue = device.getOutputQueue(name="disparity", maxSize=4, blocking=False)
+            depthQueue = device.getOutputQueue(name="depth", maxSize=4, blocking=False)
 
-        cmd_str += "\ttextmsg(\"about to call bit\")\n";
-        cmd_str += "\tbit(rg_data)\n";
-        cmd_str += "\ttextmsg(\"called bit\")\n";
+            while True:
+                previewFrame = previewQueue.get().getFrame()
+                depthFrame = depthQueue.get().getFrame()
+                disparityFrame = disparityQueue.get().getFrame() 
+                disparityFrame = (disparityFrame * (255 / depth.initialConfig.getMaxDisparity())).astype(np.uint8)
 
-        cmd_str += "\tif depth_compensation:\n";
-        cmd_str += "\t\tfinger_length = 80.0/1000\n";
-        cmd_str += "\t\tfinger_heigth_disp = 6.3/1000\n";
-        cmd_str += "\t\tcenter_displacement = 10.5/1000\n";
+                result = model(previewFrame, agnostic_nms=True)[0]
+                detections = sv.Detections.from_yolov8(result)
 
-        cmd_str += "\t\tglobal start_pose = get_forward_kin()\n";
-        cmd_str += "\t\tset_analog_inputrange(2, 1)\n";
-        cmd_str += "\t\tzscale = (get_analog_in(2)-0.026)/2.976\n";
-        cmd_str += "\t\tzangle = zscale*1.57079633-0.0942477796\n";
-        cmd_str += "\t\tzwidth = 8.4+160*sin(zangle)\n";
+                #Filter only apples
+                detections = detections[detections.class_id == 47]
 
-        cmd_str += "\t\tstart_depth = cos(zangle)*finger_length\n";
+                labels = [
+                    f"{model.model.names[class_id]} {confidence:0.2f}"
+                    for _, confidence, class_id, _
+                    in detections
+                ]
+                yoloFrame = box_annotator.annotate(
+                    scene=previewFrame, 
+                    detections=detections, 
+                    labels=labels
+                )
 
-        cmd_str += "\t\tsync()\n";
-        cmd_str += "\t\tsync()\n";
-        cmd_str += "\t\ttimeout = 0\n";
+                objectBounds = detections.xyxy
 
-        cmd_str += "\t\twhile get_digital_in(9) == True:\n";
-        cmd_str += "\t\t\ttimeout=timeout+1\n";
-        cmd_str += "\t\t\tsync()\n";
-        cmd_str += "\t\t\tif timeout > 20:\n";
-        cmd_str += "\t\t\t\tbreak\n";
-        cmd_str += "\t\t\tend\n";
-        cmd_str += "\t\tend\n";
-        cmd_str += "\t\ttimeout = 0\n";
-        cmd_str += "\t\twhile get_digital_in(9) == False:\n";
-        cmd_str += "\t\t\tzscale = (get_analog_in(2)-0.026)/2.976\n";
-        cmd_str += "\t\t\tzangle = zscale*1.57079633-0.0942477796\n";
-        cmd_str += "\t\t\tzwidth = 8.4+160*sin(zangle)\n";
-        cmd_str += "\t\t\tmeasure_depth = cos(zangle)*finger_length\n";
-        cmd_str += "\t\t\tcompensation_depth = (measure_depth - start_depth)\n";
-        cmd_str += "\t\t\ttarget_pose = pose_trans(start_pose,p[0,0,-compensation_depth,0,0,0])\n";
-        cmd_str += "\t\t\tif timeout > 400:\n";
-        cmd_str += "\t\t\t\tbreak\n";
-        cmd_str += "\t\t\tend\n";
-        cmd_str += "\t\t\ttimeout=timeout+1\n";
-        cmd_str += "\t\t\tservoj(get_inverse_kin(target_pose),0,0,0.008,0.01,2000)\n";
-        cmd_str += "\t\tend\n";
-        cmd_str += "\t\tnspeed = norm(get_actual_tcp_speed())\n";
-        cmd_str += "\t\twhile nspeed > 0.001:\n";
-        cmd_str += "\t\t\tservoj(get_inverse_kin(target_pose),0,0,0.008,0.01,2000)\n";
-        cmd_str += "\t\t\tnspeed = norm(get_actual_tcp_speed())\n";
-        cmd_str += "\t\tend\n";
-        cmd_str += "\tend\n";
-        cmd_str += "\tif depth_compensation==False:\n";
-        cmd_str += "\t\ttimeout = 0\n";
-        cmd_str += "\t\twhile get_digital_in(9) == True:\n";
-        cmd_str += "\t\t\ttimeout = timeout+1\n";
-        cmd_str += "\t\t\tsync()\n";
-        cmd_str += "\t\t\tif timeout > 20:\n";
-        cmd_str += "\t\t\t\tbreak\n";
-        cmd_str += "\t\t\tend\n";
-        cmd_str += "\t\tend\n";
-        cmd_str += "\t\ttimeout = 0\n";
-        cmd_str += "\t\twhile get_digital_in(9) == False:\n";
-        cmd_str += "\t\t\ttimeout = timeout+1\n";
-        cmd_str += "\t\t\tsync()\n";
-        cmd_str += "\t\t\tif timeout > 400:\n";
-        cmd_str += "\t\t\t\tbreak\n";
-        cmd_str += "\t\t\tend\n";
-        cmd_str += "\t\tend\n";
-        cmd_str += "\tend\n";
-        cmd_str += "\tif set_payload1:\n";
-        cmd_str += "\t\tif slave:\n";
-        cmd_str += "\t\t\tif get_analog_in(3) < 2:\n";
-        cmd_str += "\t\t\t\tzslam=0\n";
-        cmd_str += "\t\t\telse:\n";
-        cmd_str += "\t\t\t\tzslam=payload\n";
-        cmd_str += "\t\t\tend\n";
-        cmd_str += "\t\telse:\n";
-        cmd_str += "\t\t\tif get_digital_in(8) == False:\n";
-        cmd_str += "\t\t\t\tzmasm=0\n";
-        cmd_str += "\t\t\telse:\n";
-        cmd_str += "\t\t\t\tzmasm=payload\n";
-        cmd_str += "\t\t\tend\n";
-        cmd_str += "\t\tend\n";
-        cmd_str += "\t\tzsysm=0.0\n";
-        cmd_str += "\t\tzload=zmasm+zslam+zsysm\n";
-        cmd_str += "\t\tset_payload(zload)\n";
-        cmd_str += "\tend\n";
-        cmd_str += "end\n\n";
+                p1 = (int(RESOLUTION_X/2 - ACCURACY_X), int(RESOLUTION_Y/2 - ACCURACY_Y))
+                p2 = (int(RESOLUTION_X/2 + ACCURACY_X), int(RESOLUTION_Y/2 + ACCURACY_Y))
 
-        return cmd_str
+                cv2.rectangle(
+                    yoloFrame, 
+                    p1, 
+                    p2, 
+                    (255, 0, 0), 
+                    1
+                )
+
+                if len(objectBounds) > 0:
+                    xLeft = objectBounds[0][0]
+                    xRight = objectBounds[0][2]
+                    yTop = objectBounds[0][1]
+                    yBottom = objectBounds[0][3]
+                    xPoint = int(xLeft + (xRight-xLeft)/2)
+                    yPoint = int(yTop + (yBottom-yTop)/2)
+                    # Przeliczenie punktu z obrazu rgb na rozdzielczość kamery głębi
+                    # Rozdzielczość kamery głębi: 640 x 400
+                    # Rozdzielczość kamery rgb: RESOLUTION_X x RESOLUTION_Y
+                    xForDepth = int(xPoint * 640 / RESOLUTION_X)
+                    yForDepth = int(yPoint * 400 / RESOLUTION_Y)
+                    # print(f'xLeft: {xLeft}, xRight: {xRight}, yTop: {yTop}, yBottom: {yBottom}')
+                    # print('Depth', depthFrame[yForDepth][xForDepth], f'xD: {xForDepth}, yD: {yForDepth}, xP: {xPoint}, yP: {yPoint}')
+                    cv2.circle(yoloFrame, (xPoint, yPoint), 2, (0, 0, 255), 5)
+                    cv2.putText(
+                        yoloFrame, 
+                        f"{depthFrame[yForDepth][xForDepth]/10}cm", 
+                        (xPoint, yPoint), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 
+                        0.7, 
+                        (255, 255, 255), 
+                        1, 
+                    )
+                    cv2.putText(
+                        yoloFrame, 
+                        f"x:{self.get_factor(xPoint, RESOLUTION_X/2, ACCURACY_X)} y:{self.get_factor(yPoint, RESOLUTION_Y/2, ACCURACY_Y)}", 
+                        (xPoint, yPoint+20), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 
+                        0.7, 
+                        (255, 255, 255), 
+                        1, 
+                    )
+
+
+                    self.publish_command(xPoint, yPoint, depthFrame[yForDepth][xForDepth])
+
+                depthFrame = (depthFrame * (255 / 10000)).astype(np.uint8)
+
+
+                # detections.xyxy [xLeft, yTop, xRight, yBottom]
+                # x -> (min, max) = (0, RESOLUTION_X)
+                # y -> (min, max) = (0, RESOLUTION_Y)
+                cv2.imshow("disparity", disparityFrame)
+                cv2.imshow("depthFrame", depthFrame)
+                cv2.imshow("yolov8", yoloFrame)
+
+                if cv2.waitKey(1) == ord('q'):
+                    break
+
+    def get_factor(self, position, boundary, accuracy = 30):
+        factor = 0
+
+        if position < boundary - accuracy:
+            factor = -1
+        elif position > boundary + accuracy:
+            factor = 1
+        else:
+            factor = 0
+
+        return factor
+
+    def publish_command(self, x, y, depth):
+        xFactor = self.get_factor(x, RESOLUTION_X/2, ACCURACY_X)
+        yFactor = self.get_factor(y, RESOLUTION_Y/2, ACCURACY_Y)
+
+        print('Publishing command with data:', xFactor, yFactor, depth)
+        msg = URCommand()
+        msg.x = str(xFactor)
+        msg.y = str(yFactor)
+        msg.depth = str(depth)
+        self.publisher_.publish(msg)
+        print('Published command')
 
 def main (args=None):
     rclpy.init(args=args)
-    node = GripperNode()
+    node = CameraNode()
 
-    rclpy.spin(node)
+    node.recognizing_apples()
 
     node.destroy_node()
     rclpy.shutdown()

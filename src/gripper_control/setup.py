@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'camera_control'
+package_name = 'gripper_control'
 
 setup(
     name=package_name,
@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            "camera_control_node = camera_control.camera_control_node:main"
+            "gripper_control_node = gripper_control.gripper_control_node:main"
         ],
     },
 )
