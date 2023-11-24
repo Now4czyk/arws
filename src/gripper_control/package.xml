@@ -1,14 +1,13 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>camera_control</name>
+  <name>gripper_control</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
   <maintainer email="k.nowaczyk@teb-akademia.pl">teba_knowaczyk</maintainer>
   <license>TODO: License declaration</license>
 
   <depend>rclpy</depend>
-  <depend>ur_custom_interfaces</depend>
   <depend>std_msgs</depend>
 
   <test_depend>ament_copyright</test_depend>
