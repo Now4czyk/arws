@@ -9,6 +9,7 @@
 #include <moveit_msgs/msg/collision_object.hpp>
 #include <moveit/planning_scene/planning_scene.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
+#include "std_msgs/msg/string.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "ur_custom_interfaces/msg/ur_command.hpp"
@@ -23,17 +24,27 @@ using moveit::planning_interface::MoveGroupInterface;
 class MinimalPublisher : public rclcpp::Node
 {
   public:
-    MinimalPublisher(std::shared_ptr<rclcpp::Node> move_group_node, geometry_msgs::msg::Pose* lookout_pos)
+    MinimalPublisher(std::shared_ptr<rclcpp::Node> move_group_node, geometry_msgs::msg::Pose* lookout_pos, geometry_msgs::msg::Pose* apple_drop_pos)
     : Node("master_node"), is_lookout_position(false), is_horizontally_centered(false), 
     is_vertically_centered(false), is_moving(false), lookout_pos(lookout_pos), target_pose(*lookout_pos), prev_x(0),
-    is_depth_reached(false), was_centered_message_shown(false), depth(0.0)
+    is_depth_reached(false), was_centered_message_shown(false), depth(0.0), apple_drop_pose(apple_drop_pose)
     {
       RCLCPP_INFO(this->get_logger(), "Node started. Awaiting commands...");
       RCLCPP_INFO(this->get_logger(), "=======================================================");
       RCLCPP_INFO(this->get_logger(), "SETUP LOGS");
       RCLCPP_INFO(this->get_logger(), "=======================================================");
+      publisher_ = this->create_publisher<std_msgs::msg::String>("custom_gripper", 10);
+      RCLCPP_INFO(this->get_logger(), "Publisher on custom_gripper created");
       subscription_ = this->create_subscription<ur_custom_interfaces::msg::URCommand>(
       "custom_camera", 1, std::bind(&MinimalPublisher::topic_callback, this, _1));
+      RCLCPP_INFO(this->get_logger(), "Subscribed to /custom_camera topic");
+      rclcpp::sleep_for(5s);
+      publisher_->publish(std_msgs::msg::String().set__data("open"));
+      rclcpp::sleep_for(3s);
+      publisher_->publish(std_msgs::msg::String().set__data("close"));
+      rclcpp::sleep_for(3s);
+      publisher_->publish(std_msgs::msg::String().set__data("open"));
+
 
       move_group_ = new moveit::planning_interface::MoveGroupInterface(move_group_node, "ur_manipulator");
       move_group_->setMaxVelocityScalingFactor(0.1);
@@ -135,6 +146,7 @@ class MinimalPublisher : public rclcpp::Node
         return;
       }
 
+      // Reaching the apple
       if(!is_moving && !is_depth_reached) {
         // float depth_calc = 0;
         // for(auto const &d : depths){
@@ -149,7 +161,7 @@ class MinimalPublisher : public rclcpp::Node
           RCLCPP_INFO(this->get_logger(), "Applied camera offset");
         }
         else {
-          RCLCPP_INFO(this->get_logger(), "Could not apply camera offset. Shuting down.");
+          RCLCPP_INFO(this->get_logger(), "Could not apply camera offset. Shutting down.");
           rclcpp::shutdown();
         }
         
@@ -163,11 +175,54 @@ class MinimalPublisher : public rclcpp::Node
           RCLCPP_INFO(this->get_logger(), "Arrived at apple position.");
         }
         else {
-          RCLCPP_INFO(this->get_logger(), "Could not arrive at apple position. Shuting down.");
+          RCLCPP_INFO(this->get_logger(), "Could not arrive at apple position. Shutting down.");
           rclcpp::shutdown();
         }
       }
 
+      // Grabbing the apple
+      if(is_depth_reached && !is_apple_grabbed){
+        publisher_->publish(std_msgs::msg::String().set__data("close"));
+        rclcpp::sleep_for(2s);
+        is_apple_grabbed = true;
+      }
+
+
+      // Picking the apple
+      if(is_apple_grabbed && !is_moving){
+        target_pose.position.z -= 0.03;
+        bool const backward_res = this->move(target_pose, "Picking the apple");
+        if(backward_res){
+          is_apple_picked = true;
+          RCLCPP_INFO(this->get_logger(), "Arrived at lookout position.");
+        }
+        else {
+          RCLCPP_INFO(this->get_logger(), "Could not pick an apple. Shutting down.");
+          rclcpp::shutdown();
+        }
+      }
+
+      // Going back to lookout position with apple
+      if(is_apple_picked && !is_moving){
+        this->move_to_lookout_position();
+        is_with_apple_at_lookout_position = true;
+      }
+
+      // Moving to drop apple position & dropping the apple
+      if(is_with_apple_at_lookout_position && !is_moving){
+        bool const apple_lookout_pose_res = this->move(*apple_drop_pose, "Moving to apple drop position");
+        if(apple_lookout_pose_res){
+          RCLCPP_INFO(this->get_logger(), "Arrived at apple drop position.");
+          rclcpp::sleep_for(2s);
+          this->publisher_->publish(std_msgs::msg::String().set__data("open"));
+          rclcpp::sleep_for(2s);
+          reset_robot_loop();
+        }
+        else {
+          RCLCPP_INFO(this->get_logger(), "Could not arrive at apple drop position. Shutting down.");
+          rclcpp::shutdown();
+        }
+      }
     }
 
     void move_to_lookout_position(){
@@ -178,10 +233,26 @@ class MinimalPublisher : public rclcpp::Node
         RCLCPP_INFO(this->get_logger(), "Arrived at lookout position.");
       }
       else {
-        RCLCPP_INFO(this->get_logger(), "Could not arrive at lookout position. Shuting down.");
+        RCLCPP_INFO(this->get_logger(), "Could not arrive at lookout position. Shutting down.");
         rclcpp::shutdown();
       }
 
+    }
+
+    void reset_robot_loop(){
+      is_lookout_position = false;
+      is_horizontally_centered = false;
+      is_vertically_centered = false;
+      is_moving = false;
+      is_depth_reached = false;
+      is_at_apple_position = false;
+      is_apple_grabbed = false;
+      is_apple_picked = false;
+      is_with_apple_at_lookout_position = false;
+      was_centered_message_shown = false;
+      depths.clear();
+      prev_x = 0;
+      this->move_to_lookout_position();
     }
 
     float sanitize_depth(std::string raw_depth){
@@ -226,13 +297,19 @@ class MinimalPublisher : public rclcpp::Node
     bool is_vertically_centered;
     bool is_moving;
     bool is_depth_reached;
+    bool is_at_apple_position;
+    bool is_apple_grabbed;
+    bool is_apple_picked;
+    bool is_with_apple_at_lookout_position;
     int prev_x;
     bool was_centered_message_shown;
     float depth;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
     std::vector<float> depths;
     rclcpp::Time end_timer;
     rclcpp::Time timer;
     geometry_msgs::msg::Pose* lookout_pos;
+    geometry_msgs::msg::Pose* apple_drop_pose;
     moveit::planning_interface::MoveGroupInterface* move_group_;
     geometry_msgs::msg::Pose target_pose;
 };
@@ -247,6 +324,17 @@ int main(int argc, char * argv[])
   lookout_pos.position.x = -0.132976;
   lookout_pos.position.y = 0.133019;
   lookout_pos.position.z = 0.433306;
+
+
+  geometry_msgs::msg::Pose apple_drop_pos;
+  lookout_pos.orientation.w = 0.714969;
+  lookout_pos.orientation.x = -0.698944;
+  lookout_pos.orientation.y = 0.007149;
+  lookout_pos.orientation.z = -0.015674;
+  lookout_pos.position.x = -0.132976;
+  lookout_pos.position.y = 0.133019;
+  lookout_pos.position.z = 0.433306;
+
   rclcpp::init(argc, argv);
   rclcpp::NodeOptions node_options;
   node_options.automatically_declare_parameters_from_overrides(true);
