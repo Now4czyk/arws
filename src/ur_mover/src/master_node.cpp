@@ -27,7 +27,8 @@ class MinimalPublisher : public rclcpp::Node
     MinimalPublisher(std::shared_ptr<rclcpp::Node> move_group_node, geometry_msgs::msg::Pose* lookout_pos, geometry_msgs::msg::Pose* apple_drop_pos)
     : Node("master_node"), is_lookout_position(false), is_horizontally_centered(false), 
     is_vertically_centered(false), is_moving(false), lookout_pos(lookout_pos), target_pose(*lookout_pos), prev_x(0),
-    is_depth_reached(false), was_centered_message_shown(false), depth(0.0), apple_drop_pose(apple_drop_pose)
+    is_depth_reached(false), was_centered_message_shown(false), depth(0.0), apple_drop_pose(apple_drop_pose), is_at_apple_position(false), 
+    is_apple_grabbed(false), is_apple_picked(false), is_with_apple_at_lookout_position(false)
     {
       RCLCPP_INFO(this->get_logger(), "Node started. Awaiting commands...");
       RCLCPP_INFO(this->get_logger(), "=======================================================");
