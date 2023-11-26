@@ -21,10 +21,10 @@ using moveit::planning_interface::MoveGroupInterface;
 /* This example creates a subclass of Node and uses std::bind() to register a
 * member function as a callback from the timer. */
 
-class MinimalPublisher : public rclcpp::Node
+class RobotMasterController : public rclcpp::Node
 {
   public:
-    MinimalPublisher(std::shared_ptr<rclcpp::Node> move_group_node, geometry_msgs::msg::Pose* lookout_pos, geometry_msgs::msg::Pose* apple_drop_pos)
+    RobotMasterController(std::shared_ptr<rclcpp::Node> move_group_node, geometry_msgs::msg::Pose* lookout_pos, geometry_msgs::msg::Pose* apple_drop_pos)
     : Node("master_node"), is_lookout_position(false), is_horizontally_centered(false), 
     is_vertically_centered(false), is_moving(false), lookout_pos(lookout_pos), target_pose(*lookout_pos), prev_x(0),
     is_depth_reached(false), was_centered_message_shown(false), depth(0.0), apple_drop_pose(apple_drop_pose), is_at_apple_position(false), 
@@ -37,7 +37,7 @@ class MinimalPublisher : public rclcpp::Node
       publisher_ = this->create_publisher<std_msgs::msg::String>("custom_gripper", 10);
       RCLCPP_INFO(this->get_logger(), "Publisher on custom_gripper created");
       subscription_ = this->create_subscription<ur_custom_interfaces::msg::URCommand>(
-      "custom_camera", 1, std::bind(&MinimalPublisher::topic_callback, this, _1));
+      "custom_camera", 1, std::bind(&RobotMasterController::topic_callback, this, _1));
       RCLCPP_INFO(this->get_logger(), "Subscribed to /custom_camera topic");
       publisher_->publish(std_msgs::msg::String().set__data("open"));
       RCLCPP_INFO(this->get_logger(), "Sent command to open the gripper");
@@ -341,8 +341,7 @@ int main(int argc, char * argv[])
   executor.add_node(move_robot_node);
   std::thread spinner = std::thread([&executor]() { executor.spin(); });
 
-  rclcpp::spin(std::make_shared<MinimalPublisher>(move_robot_node, &lookout_pos));
-  // rclcpp::spin(move_robot);
+  rclcpp::spin(std::make_shared<RobotMasterController>(move_robot_node, &lookout_pos));
   rclcpp::shutdown();
   return 0;
 }
