@@ -38,12 +38,8 @@ class MinimalPublisher : public rclcpp::Node
       subscription_ = this->create_subscription<ur_custom_interfaces::msg::URCommand>(
       "custom_camera", 1, std::bind(&MinimalPublisher::topic_callback, this, _1));
       RCLCPP_INFO(this->get_logger(), "Subscribed to /custom_camera topic");
-      rclcpp::sleep_for(5s);
       publisher_->publish(std_msgs::msg::String().set__data("open"));
-      rclcpp::sleep_for(3s);
-      publisher_->publish(std_msgs::msg::String().set__data("close"));
-      rclcpp::sleep_for(3s);
-      publisher_->publish(std_msgs::msg::String().set__data("open"));
+      RCLCPP_INFO(this->get_logger(), "Sent command to open the gripper");
 
 
       move_group_ = new moveit::planning_interface::MoveGroupInterface(move_group_node, "ur_manipulator");
