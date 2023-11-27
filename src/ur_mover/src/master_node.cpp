@@ -152,7 +152,7 @@ class RobotMasterController : public rclcpp::Node
         // depth_calc /= depths.size();
 
         // including camera offset
-        target_pose.position.z += 0.055;
+        target_pose.position.z += 0.14;
         bool const offset_res = this->move(target_pose, "Applying camera offset");
         if(offset_res){
           RCLCPP_INFO(this->get_logger(), "Applied camera offset");
@@ -163,7 +163,9 @@ class RobotMasterController : public rclcpp::Node
         }
         
         RCLCPP_INFO(this->get_logger(), "Moving robot forward by %f", depth);
-        target_pose.position.y += depth;
+        float camera_offset = 0.1;
+        float gripper_offset = 0.19;
+        target_pose.position.y += depth - camera_offset - gripper_offset;
 
         bool const forward_res = this->move(target_pose, "Moving robot forward");
 
@@ -341,7 +343,7 @@ int main(int argc, char * argv[])
   executor.add_node(move_robot_node);
   std::thread spinner = std::thread([&executor]() { executor.spin(); });
 
-  rclcpp::spin(std::make_shared<RobotMasterController>(move_robot_node, &lookout_pos));
+  rclcpp::spin(std::make_shared<RobotMasterController>(move_robot_node, &lookout_pos, &apple_drop_pos));
   rclcpp::shutdown();
   return 0;
 }
