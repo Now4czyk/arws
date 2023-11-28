@@ -1,2 +1,2 @@
 # arws
-Codebase for apple detection and harvesting using OAK-D Pro camera and Universal Robot 3e manipulator
+Codebase for implementation of a prototype fruit harvesting system using a robotic arm (Universal Robot 3e) with vision feedback (OAK-D Pro).
