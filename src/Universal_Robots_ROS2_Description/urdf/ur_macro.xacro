@@ -391,7 +391,7 @@
     <link name="${tf_prefix}tool0"/>
     <joint name="${tf_prefix}flange-tool0" type="fixed">
       <!-- default toolframe - X+ left, Y+ up, Z+ front -->
-      <origin xyz="0 0 0" rpy="${pi/2.0} 0 ${pi/2.0}"/>
+      <origin xyz="0.19 0 0" rpy="${pi/2.0} 0 ${pi/2.0}"/>
       <parent link="${tf_prefix}flange"/>
       <child link="${tf_prefix}tool0"/>
     </joint>
@@ -399,7 +399,7 @@
     <link name="cylinder_link">
       <visual>
         <geometry>
-          <cylinder length="0.05" radius="0.05"/>
+          <cylinder length="0.19" radius="0.05"/>
         </geometry>
         <material name="blue">
           <color rgba="0.0 0.0 1.0 1.0"/>
@@ -407,7 +407,7 @@
       </visual>
       <collision>
         <geometry>
-          <cylinder length="0.05" radius="0.05"/>
+          <cylinder length="0.19" radius="0.05"/>
         </geometry>
       </collision>
       <inertial>
@@ -418,7 +418,7 @@
     <joint name="wrist_3_link-fixed_joint" type="fixed">
       <parent link="wrist_3_link"/>
       <child link="cylinder_link"/>
-      <origin rpy="0 0 0" xyz="0 0 ${wrist_3_inertia_length -0.014}"/>
+      <origin rpy="0 0 0" xyz="0 0 ${(wrist_3_inertia_length / 2) + 0.078}"/>
     </joint>
 
 <link name="table">
