@@ -34,13 +34,15 @@ class RobotMasterController : public rclcpp::Node
       RCLCPP_INFO(this->get_logger(), "=======================================================");
       RCLCPP_INFO(this->get_logger(), "SETUP LOGS");
       RCLCPP_INFO(this->get_logger(), "=======================================================");
-      publisher_ = this->create_publisher<std_msgs::msg::String>("custom_gripper", 10);
+      publisher_ = this->create_publisher<std_msgs::msg::String>("/custom_gripper", 10);
       RCLCPP_INFO(this->get_logger(), "Publisher on custom_gripper created");
       subscription_ = this->create_subscription<ur_custom_interfaces::msg::URCommand>(
       "custom_camera", 1, std::bind(&RobotMasterController::topic_callback, this, _1));
       RCLCPP_INFO(this->get_logger(), "Subscribed to /custom_camera topic");
-      publisher_->publish(std_msgs::msg::String().set__data("open"));
-      RCLCPP_INFO(this->get_logger(), "Sent command to open the gripper");
+
+        rclcpp::sleep_for(1s);
+        publisher_->publish(std_msgs::msg::String().set__data("open"));
+        rclcpp::sleep_for(5s);
 
 
       move_group_ = new moveit::planning_interface::MoveGroupInterface(move_group_node, "ur_manipulator");
@@ -164,7 +166,7 @@ class RobotMasterController : public rclcpp::Node
         
         RCLCPP_INFO(this->get_logger(), "Moving robot forward by %f", depth);
         float camera_offset = 0.1;
-        float gripper_offset = 0.19;
+        float gripper_offset = 0.18;
         target_pose.position.y += depth - camera_offset - gripper_offset;
 
         bool const forward_res = this->move(target_pose, "Moving robot forward");
@@ -181,15 +183,18 @@ class RobotMasterController : public rclcpp::Node
 
       // Grabbing the apple
       if(is_depth_reached && !is_apple_grabbed){
+        RCLCPP_INFO(this->get_logger(), "About to close gripper");
         publisher_->publish(std_msgs::msg::String().set__data("close"));
-        rclcpp::sleep_for(2s);
+        RCLCPP_INFO(this->get_logger(), "Gripper closed");
+        rclcpp::sleep_for(4s);
         is_apple_grabbed = true;
       }
 
 
       // Picking the apple
       if(is_apple_grabbed && !is_moving){
-        target_pose.position.z -= 0.03;
+        target_pose.position.z += 0.03;
+        target_pose.position.y -= 0.07;
         bool const backward_res = this->move(target_pose, "Picking the apple");
         if(backward_res){
           is_apple_picked = true;
