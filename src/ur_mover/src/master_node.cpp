@@ -34,19 +34,23 @@ class RobotMasterController : public rclcpp::Node
       RCLCPP_INFO(this->get_logger(), "=======================================================");
       RCLCPP_INFO(this->get_logger(), "SETUP LOGS");
       RCLCPP_INFO(this->get_logger(), "=======================================================");
-      publisher_ = this->create_publisher<std_msgs::msg::String>("/custom_gripper", 10);
-      RCLCPP_INFO(this->get_logger(), "Publisher on custom_gripper created");
       subscription_ = this->create_subscription<ur_custom_interfaces::msg::URCommand>(
       "custom_camera", 1, std::bind(&RobotMasterController::topic_callback, this, _1));
       RCLCPP_INFO(this->get_logger(), "Subscribed to /custom_camera topic");
+      publisher = this->create_publisher<std_msgs::msg::String>("/custom_gripper", 1);
+      RCLCPP_INFO(this->get_logger(), "Publisher on custom_gripper created");
 
-        rclcpp::sleep_for(1s);
-        publisher_->publish(std_msgs::msg::String().set__data("open"));
-        rclcpp::sleep_for(5s);
+
+      auto message = std_msgs::msg::String();
+      message.data = "open";
+      rclcpp::sleep_for(1s);
+      publisher->publish(message);
+      rclcpp::sleep_for(5s);
+
 
 
       move_group_ = new moveit::planning_interface::MoveGroupInterface(move_group_node, "ur_manipulator");
-      move_group_->setMaxVelocityScalingFactor(0.1);
+      // move_group_->setMaxVelocityScalingFactor(0.1);
       auto const robot_pos = move_group_->getCurrentPose("wrist_3_link");
       RCLCPP_INFO(this->get_logger(), "Robot position: %f, %f, %f", robot_pos.pose.position.x, robot_pos.pose.position.y, robot_pos.pose.position.z);
       RCLCPP_INFO(this->get_logger(), "Robot rotation: %f, %f, %f, %f", 
@@ -140,7 +144,7 @@ class RobotMasterController : public rclcpp::Node
         RCLCPP_INFO(this->get_logger(), "Depth too small. Awaiting another reading.");
         return;
       }
-      if (depth > 0.5) {
+      if (depth > 0.8) {
         RCLCPP_INFO(this->get_logger(), "Depth too big. Awaiting another reading.");
         return;
       }
@@ -165,9 +169,11 @@ class RobotMasterController : public rclcpp::Node
         }
         
         RCLCPP_INFO(this->get_logger(), "Moving robot forward by %f", depth);
-        float camera_offset = 0.1;
-        float gripper_offset = 0.18;
+        float camera_offset = 0.11;
+        float gripper_offset = 0.14;
         target_pose.position.y += depth - camera_offset - gripper_offset;
+        // shouldnt be hardcoded
+        target_pose.position.x -= 0.03;
 
         bool const forward_res = this->move(target_pose, "Moving robot forward");
 
@@ -184,9 +190,10 @@ class RobotMasterController : public rclcpp::Node
       // Grabbing the apple
       if(is_depth_reached && !is_apple_grabbed){
         RCLCPP_INFO(this->get_logger(), "About to close gripper");
-        publisher_->publish(std_msgs::msg::String().set__data("close"));
+        rclcpp::sleep_for(1s);
+        publisher->publish(std_msgs::msg::String().set__data("close"));
+        rclcpp::sleep_for(5s);
         RCLCPP_INFO(this->get_logger(), "Gripper closed");
-        rclcpp::sleep_for(4s);
         is_apple_grabbed = true;
       }
 
@@ -198,7 +205,7 @@ class RobotMasterController : public rclcpp::Node
         bool const backward_res = this->move(target_pose, "Picking the apple");
         if(backward_res){
           is_apple_picked = true;
-          RCLCPP_INFO(this->get_logger(), "Arrived at lookout position.");
+          RCLCPP_INFO(this->get_logger(), "Position after picking an apple");
         }
         else {
           RCLCPP_INFO(this->get_logger(), "Could not pick an apple. Shutting down.");
@@ -206,20 +213,26 @@ class RobotMasterController : public rclcpp::Node
         }
       }
 
+          RCLCPP_INFO(this->get_logger(), "Before going to lookout position with apple");
       // Going back to lookout position with apple
       if(is_apple_picked && !is_moving){
         this->move_to_lookout_position();
+          RCLCPP_INFO(this->get_logger(), "Going to lookout position");
         is_with_apple_at_lookout_position = true;
       }
+          RCLCPP_INFO(this->get_logger(), "After going to lookout position with apple");
 
       // Moving to drop apple position & dropping the apple
       if(is_with_apple_at_lookout_position && !is_moving){
-        bool const apple_lookout_pose_res = this->move(*apple_drop_pose, "Moving to apple drop position");
+          RCLCPP_INFO(this->get_logger(), "IN IF");
+        bool const apple_lookout_pose_res = this->move(*lookout_pos, "Moving to apple drop position");
+
+          RCLCPP_INFO(this->get_logger(), "AFTER MOVE");
         if(apple_lookout_pose_res){
           RCLCPP_INFO(this->get_logger(), "Arrived at apple drop position.");
-          rclcpp::sleep_for(2s);
-          this->publisher_->publish(std_msgs::msg::String().set__data("open"));
-          rclcpp::sleep_for(2s);
+          rclcpp::sleep_for(1s);
+          publisher->publish(std_msgs::msg::String().set__data("open"));
+          rclcpp::sleep_for(5s);
           reset_robot_loop();
         }
         else {
@@ -261,8 +274,8 @@ class RobotMasterController : public rclcpp::Node
 
     float sanitize_depth(std::string raw_depth){
       float depth = std::stof(raw_depth) / 1000;
-      if(depth > 0.5){
-        depth = 0.5;
+      if(depth > 0.8){
+        depth = 0.8;
       }
       else if(depth < 0){
         depth = 0;
@@ -308,7 +321,6 @@ class RobotMasterController : public rclcpp::Node
     int prev_x;
     bool was_centered_message_shown;
     float depth;
-    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
     std::vector<float> depths;
     rclcpp::Time end_timer;
     rclcpp::Time timer;
@@ -316,28 +328,38 @@ class RobotMasterController : public rclcpp::Node
     geometry_msgs::msg::Pose* apple_drop_pose;
     moveit::planning_interface::MoveGroupInterface* move_group_;
     geometry_msgs::msg::Pose target_pose;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher;
 };
 
 int main(int argc, char * argv[])
 {
-  geometry_msgs::msg::Pose lookout_pos;
-  lookout_pos.orientation.w = 0.714969;
-  lookout_pos.orientation.x = -0.698944;
-  lookout_pos.orientation.y = 0.007149;
-  lookout_pos.orientation.z = -0.015674;
-  lookout_pos.position.x = -0.132976;
-  lookout_pos.position.y = 0.133019;
-  lookout_pos.position.z = 0.433306;
+  // geometry_msgs::msg::Pose lookout_pos;
+  // lookout_pos.orientation.w = 0.714969;
+  // lookout_pos.orientation.x = -0.698944;
+  // lookout_pos.orientation.y = 0.007149;
+  // lookout_pos.orientation.z = -0.015674;
+  // lookout_pos.position.x = -0.132976;
+  // lookout_pos.position.y = 0.133019;
+  // lookout_pos.position.z = 0.433306;
+
+    geometry_msgs::msg::Pose lookout_pos;
+  lookout_pos.orientation.w = 0.704585;
+  lookout_pos.orientation.x = -0.708946;
+  lookout_pos.orientation.y = -0.028501;
+  lookout_pos.orientation.z = 0.011923;
+  lookout_pos.position.x = -0.131775;
+  lookout_pos.position.y = -0.127100;
+  lookout_pos.position.z = 0.571933;
 
 
   geometry_msgs::msg::Pose apple_drop_pos;
-  lookout_pos.orientation.w = 0.714969;
-  lookout_pos.orientation.x = -0.698944;
-  lookout_pos.orientation.y = 0.007149;
-  lookout_pos.orientation.z = -0.015674;
-  lookout_pos.position.x = -0.132976;
-  lookout_pos.position.y = 0.133019;
-  lookout_pos.position.z = 0.433306;
+  apple_drop_pos.orientation.w = 0.714969;
+  apple_drop_pos.orientation.x = -0.698944;
+  apple_drop_pos.orientation.y = 0.007149;
+  apple_drop_pos.orientation.z = -0.015674;
+  apple_drop_pos.position.x = -0.132976;
+  apple_drop_pos.position.y = 0.133019;
+  apple_drop_pos.position.z = 0.433306;
 
   rclcpp::init(argc, argv);
   rclcpp::NodeOptions node_options;
