@@ -15,7 +15,7 @@ import numpy as np
 
 RESOLUTION_X = 1280
 RESOLUTION_Y = 720
-ACCURACY_X = 100
+ACCURACY_X = 80
 ACCURACY_Y = 80
 
 # Closer-in minimum depth, disparity range is doubled (from 95 to 190):
