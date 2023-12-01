@@ -2,6 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+from std_srvs.srv import Trigger
 from urx.urscript import URScript
 import math
 import time
@@ -62,7 +63,7 @@ boilerplate =  """
     end
   end
   lg_thr = run lost_grip_thread()
-  def RG2(target_width=110, target_force=40, payload=0.0, set_payload=False, depth_compensation=False, slave=False):
+  def RG2(target_width=110, target_force=100, payload=0.0, set_payload=False, depth_compensation=False, slave=False):
     grip_detected=False
     if slave:
       slave_grip_detected=False
@@ -249,17 +250,19 @@ class OnRobotGripperRG2(object):
     def __init__(self, robot):
         self.robot = robot
 
-    def open_gripper(self, target_width=110, target_force=40, payload=0.5, set_payload=False, depth_compensation=False, slave=False, wait=2):
+    def open_gripper(self, target_width=100, target_force=40, payload=0.5, set_payload=False, depth_compensation=False, slave=False, wait=2):
+        # time.sleep(wait)
         urscript = OnRobotGripperRG2Script()
         urscript._rg2_command(target_width, target_force, payload, set_payload, depth_compensation, slave)
         self.robot.send_program(urscript())
-        time.sleep(wait)
+        time.sleep(4)
 
     def close_gripper(self, target_width=-10, target_force=40, payload=0.5, set_payload=False, depth_compensation=False, slave=False, wait=2):
+        # time.sleep(wait)
         urscript = OnRobotGripperRG2Script()
         urscript._rg2_command(target_width, target_force, payload, set_payload, depth_compensation, slave)
         self.robot.send_program(urscript())
-        time.sleep(wait)
+        time.sleep(4)
 
     @property
     def width(self):
@@ -276,27 +279,37 @@ class OnRobotGripperRG2(object):
 class GripperNode (Node):
     def __init__ (self):
         super().__init__("py_test")
-        self.rob = urx.Robot("192.168.1.101")
-        self.gripper = OnRobotGripperRG2(self.rob)
         self.get_logger ().info("Hello Gripper Node")
         self.subscription = self.create_subscription(
             String,
             'custom_gripper',
             self.listener_callback,
             1)
-        
+        self.rob = urx.Robot("192.168.1.100")
+        self.gripper = OnRobotGripperRG2(self.rob)
+        self.minimal_client = MinimalClientAsync()
+
+
     def listener_callback(self, msg):
         self.get_logger().info('[INFO] Received gripper command: "%s"' % msg.data)
 
+        
+
         if msg.data == "open":
-            self.gripper.open_gripper(100)
+            self.gripper.open_gripper(95)
             self.get_logger().info("[INFO]: Open gripper")
         elif msg.data == "close":
-            self.close_gripper(78)
+            self.gripper.close_gripper(60)
             self.get_logger().info("[INFO]: Closed gripper")
         else:
             self.get_logger().info("[INFO]: Wrong message")
-    
+        
+        
+        response = self.minimal_client.send_request()
+        print(" :: ", response)
+        # res = self.send_request()
+        # print(res)
+        
 
 def main (args=None):
     rclpy.init(args=args)
@@ -309,3 +322,17 @@ def main (args=None):
 
 if __name__ == "__main__":
     main()
+
+class MinimalClientAsync(Node):
+
+    def __init__(self):
+        super().__init__('minimal_client_async')
+        self.cli = self.create_client(Trigger, '/dashboard_client/play')
+        while not self.cli.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('service not available, waiting again...')
+        self.req = Trigger.Request()
+
+    def send_request(self):
+        self.future = self.cli.call_async(self.req)
+        rclpy.spin_until_future_complete(self, self.future)
+        return self.future.result()
