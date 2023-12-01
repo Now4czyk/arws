@@ -27,7 +27,7 @@ class RobotMasterController : public rclcpp::Node
     RobotMasterController(std::shared_ptr<rclcpp::Node> move_group_node, geometry_msgs::msg::Pose* lookout_pos, geometry_msgs::msg::Pose* apple_drop_pos)
     : Node("master_node"), is_lookout_position(false), is_horizontally_centered(false), 
     is_vertically_centered(false), is_moving(false), lookout_pos(lookout_pos), target_pose(*lookout_pos), prev_x(0),
-    is_depth_reached(false), was_centered_message_shown(false), depth(0.0), apple_drop_pose(apple_drop_pose), is_at_apple_position(false), 
+    is_depth_reached(false), was_centered_message_shown(false), depth(0.0), apple_drop_pose(apple_drop_pos), is_at_apple_position(false), 
     is_apple_grabbed(false), is_apple_picked(false), is_with_apple_at_lookout_position(false)
     {
       RCLCPP_INFO(this->get_logger(), "Node started. Awaiting commands...");
@@ -41,12 +41,11 @@ class RobotMasterController : public rclcpp::Node
       RCLCPP_INFO(this->get_logger(), "Publisher on custom_gripper created");
 
 
-      auto message = std_msgs::msg::String();
-      message.data = "open";
-      rclcpp::sleep_for(1s);
-      publisher->publish(message);
-      rclcpp::sleep_for(5s);
-
+      // auto message = std_msgs::msg::String();
+      // message.data = "open";
+      // rclcpp::sleep_for(1s);
+      // publisher->publish(message);
+      // rclcpp::sleep_for(5s);
 
 
       move_group_ = new moveit::planning_interface::MoveGroupInterface(move_group_node, "ur_manipulator");
@@ -158,7 +157,7 @@ class RobotMasterController : public rclcpp::Node
         // depth_calc /= depths.size();
 
         // including camera offset
-        target_pose.position.z += 0.14;
+        target_pose.position.z += 0.18;
         bool const offset_res = this->move(target_pose, "Applying camera offset");
         if(offset_res){
           RCLCPP_INFO(this->get_logger(), "Applied camera offset");
@@ -170,7 +169,7 @@ class RobotMasterController : public rclcpp::Node
         
         RCLCPP_INFO(this->get_logger(), "Moving robot forward by %f", depth);
         float camera_offset = 0.11;
-        float gripper_offset = 0.14;
+        float gripper_offset = 0.00;
         target_pose.position.y += depth - camera_offset - gripper_offset;
         // shouldnt be hardcoded
         target_pose.position.x -= 0.03;
@@ -225,7 +224,7 @@ class RobotMasterController : public rclcpp::Node
       // Moving to drop apple position & dropping the apple
       if(is_with_apple_at_lookout_position && !is_moving){
           RCLCPP_INFO(this->get_logger(), "IN IF");
-        bool const apple_lookout_pose_res = this->move(*lookout_pos, "Moving to apple drop position");
+        bool const apple_lookout_pose_res = this->move(*apple_drop_pose, "Moving to apple drop position");
 
           RCLCPP_INFO(this->get_logger(), "AFTER MOVE");
         if(apple_lookout_pose_res){
@@ -234,6 +233,9 @@ class RobotMasterController : public rclcpp::Node
           publisher->publish(std_msgs::msg::String().set__data("open"));
           rclcpp::sleep_for(5s);
           reset_robot_loop();
+          this->move_to_lookout_position();
+          target_pose = *lookout_pos;
+          rclcpp::sleep_for(1s);
         }
         else {
           RCLCPP_INFO(this->get_logger(), "Could not arrive at apple drop position. Shutting down.");
@@ -308,6 +310,31 @@ class RobotMasterController : public rclcpp::Node
         return false;
     }
 
+    bool move(std::vector<geometry_msgs::msg::Pose> target_poses, const char * log_message = "Moving robot"){
+      is_moving = true;
+      moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+      move_group_->setEndEffectorLink("wrist_3_link");
+
+      double eef_step = 0.01; // Rozdzielczość trajektorii
+      auto res = move_group_->computeCartesianPath(target_poses, eef_step, 0.0, my_plan.trajectory_);
+      RCLCPP_INFO(this->get_logger(), log_message);
+
+      if (res != -1) {
+        auto move_res = move_group_->execute(my_plan);
+          if(move_res == moveit::planning_interface::MoveItErrorCode::SUCCESS){
+            is_moving = false;
+            RCLCPP_INFO(this->get_logger(), "Execution successful for the waypoint.");
+            return true;
+          } else {
+            RCLCPP_ERROR(this->get_logger(), "Execution failed for the waypoint.");
+          }
+        } else {
+          RCLCPP_ERROR(this->get_logger(), "Failed to plan the trajectory");
+        }
+        is_moving = false;
+        return false;
+    }
+
     rclcpp::Subscription<ur_custom_interfaces::msg::URCommand>::SharedPtr subscription_;
     bool is_lookout_position;
     bool is_horizontally_centered;
@@ -329,6 +356,7 @@ class RobotMasterController : public rclcpp::Node
     moveit::planning_interface::MoveGroupInterface* move_group_;
     geometry_msgs::msg::Pose target_pose;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher;
+    std::vector<geometry_msgs::msg::Pose> waypoints;
 };
 
 int main(int argc, char * argv[])
@@ -343,23 +371,33 @@ int main(int argc, char * argv[])
   // lookout_pos.position.z = 0.433306;
 
     geometry_msgs::msg::Pose lookout_pos;
-  lookout_pos.orientation.w = 0.704585;
-  lookout_pos.orientation.x = -0.708946;
-  lookout_pos.orientation.y = -0.028501;
-  lookout_pos.orientation.z = 0.011923;
+  lookout_pos.orientation.w = 0.700288;
+  lookout_pos.orientation.x = -0.713574;
+  lookout_pos.orientation.y = 0.002969;
+  lookout_pos.orientation.z = -0.019990;
   lookout_pos.position.x = -0.131775;
   lookout_pos.position.y = -0.127100;
-  lookout_pos.position.z = 0.571933;
+  lookout_pos.position.z = 0.571933-0.15;
 
 
-  geometry_msgs::msg::Pose apple_drop_pos;
-  apple_drop_pos.orientation.w = 0.714969;
-  apple_drop_pos.orientation.x = -0.698944;
-  apple_drop_pos.orientation.y = 0.007149;
-  apple_drop_pos.orientation.z = -0.015674;
-  apple_drop_pos.position.x = -0.132976;
-  apple_drop_pos.position.y = 0.133019;
-  apple_drop_pos.position.z = 0.433306;
+  // geometry_msgs::msg::Pose apple_drop_pos;
+  // apple_drop_pos.orientation.w = -0.100863;
+  // apple_drop_pos.orientation.x = 0.694118;
+  // apple_drop_pos.orientation.y = 0.693356;
+  // apple_drop_pos.orientation.z = -0.165179;
+  // apple_drop_pos.position.x = -0.508207;
+  // apple_drop_pos.position.y = -0.047098;
+  // apple_drop_pos.position.z = 0.221583;
+
+    geometry_msgs::msg::Pose apple_drop_pos;
+  apple_drop_pos.orientation.w = 0.475287;
+  apple_drop_pos.orientation.x = -0.504723;
+  apple_drop_pos.orientation.y = -0.495298;
+  apple_drop_pos.orientation.z = 0.523485;
+  apple_drop_pos.position.x = -0.229409;
+  apple_drop_pos.position.y = -0.251604;
+  apple_drop_pos.position.z = 0.561635-0.15;
+
 
   rclcpp::init(argc, argv);
   rclcpp::NodeOptions node_options;

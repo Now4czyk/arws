@@ -63,7 +63,7 @@ boilerplate =  """
     end
   end
   lg_thr = run lost_grip_thread()
-  def RG2(target_width=110, target_force=40, payload=0.0, set_payload=False, depth_compensation=False, slave=False):
+  def RG2(target_width=110, target_force=100, payload=0.0, set_payload=False, depth_compensation=False, slave=False):
     grip_detected=False
     if slave:
       slave_grip_detected=False
@@ -299,7 +299,7 @@ class GripperNode (Node):
             self.gripper.open_gripper(95)
             self.get_logger().info("[INFO]: Open gripper")
         elif msg.data == "close":
-            self.gripper.close_gripper(73)
+            self.gripper.close_gripper(60)
             self.get_logger().info("[INFO]: Closed gripper")
         else:
             self.get_logger().info("[INFO]: Wrong message")
