@@ -162,28 +162,4 @@ def generate_launch_description():
         arguments=arguments1,
     )
 
-    # demo_node2 = Node(
-    #     package="ros2_ur_moveit_examples",
-    #     executable="hello_moveit",
-    #     name="hello_moveit",
-    #     output="screen",
-    #     parameters=[
-    #         robot_description,
-    #         robot_description_semantic,
-    #         robot_description_kinematics,
-    #     ],
-    #     arguments=arguments2,
-    # )
-    # # Define an event handler to launch demo_node2 after demo_node1 exits
-    # demo_node1_exit_handler = launch.actions.RegisterEventHandler(
-    #     OnProcessExit(
-    #         target_action=demo_node1,
-    #         on_exit=LaunchDescription([
-    #                 demo_node2
-    #             ])
-    #     )
-    # )
-
-    # return launch.LaunchDescription([demo_node1, demo_node1_exit_handler])
-
     return launch.LaunchDescription([demo_node1])

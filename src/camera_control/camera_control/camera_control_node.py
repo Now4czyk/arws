@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-# this is how to import custom messages
 from ur_custom_interfaces.msg import URCommand
 import cv2
 import argparse
@@ -156,8 +155,6 @@ class CameraNode (Node):
                     # Rozdzielczość kamery rgb: RESOLUTION_X x RESOLUTION_Y
                     xForDepth = int(xPoint * 640 / RESOLUTION_X)
                     yForDepth = int(yPoint * 400 / RESOLUTION_Y)
-                    # print(f'xLeft: {xLeft}, xRight: {xRight}, yTop: {yTop}, yBottom: {yBottom}')
-                    # print('Depth', depthFrame[yForDepth][xForDepth], f'xD: {xForDepth}, yD: {yForDepth}, xP: {xPoint}, yP: {yPoint}')
                     cv2.circle(yoloFrame, (xPoint, yPoint), 2, (0, 0, 255), 5)
                     cv2.putText(
                         yoloFrame, 

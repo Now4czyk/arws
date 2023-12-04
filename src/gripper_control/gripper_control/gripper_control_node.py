@@ -7,7 +7,6 @@ from urx.urscript import URScript
 import math
 import time
 import urx
-import sys
 
 boilerplate =  """
   set_standard_analog_input_domain(0, 1)
@@ -251,14 +250,12 @@ class OnRobotGripperRG2(object):
         self.robot = robot
 
     def open_gripper(self, target_width=100, target_force=40, payload=0.5, set_payload=False, depth_compensation=False, slave=False, wait=2):
-        # time.sleep(wait)
         urscript = OnRobotGripperRG2Script()
         urscript._rg2_command(target_width, target_force, payload, set_payload, depth_compensation, slave)
         self.robot.send_program(urscript())
         time.sleep(4)
 
     def close_gripper(self, target_width=-10, target_force=40, payload=0.5, set_payload=False, depth_compensation=False, slave=False, wait=2):
-        # time.sleep(wait)
         urscript = OnRobotGripperRG2Script()
         urscript._rg2_command(target_width, target_force, payload, set_payload, depth_compensation, slave)
         self.robot.send_program(urscript())
@@ -305,11 +302,7 @@ class GripperNode (Node):
             self.get_logger().info("[INFO]: Wrong message")
         
         
-        response = self.minimal_client.send_request()
-        print(" :: ", response)
-        # res = self.send_request()
-        # print(res)
-        
+        self.minimal_client.send_request()
 
 def main (args=None):
     rclpy.init(args=args)
