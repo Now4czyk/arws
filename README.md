@@ -1,67 +1,67 @@
-# Implementacja prototypu systemu zbioru owoców za pomocą ramienia robotycznego z wizyjnym sprzężeniem zwrotnym
+# Implementation of Fruit Harvesting System Prototype Using Robotic Arm with Vision Feedback
 
-## Opis
+## Description
 
-Projekt zawiera kompleksowe oprogramowanie, które jest w stanie wykonać zadanie identyfikacji, a następnie zbioru jabłka za pomocą robota UR3e, kamery OAK-D Pro oraz grippera RG2. Po poprawnym montażu wszystkich elementów oraz uruchomieniu wymaganych węzłów, robot ustawi się w pozycji gotowej do skanowania drzewa. Jeśli w polu widzenia kamery znajdzie się jabłko, robot wykona ruch do pozycji zbioru, a następnie zbierze owoc. Po zakończeniu zbioru, robot powróci do pozycji gotowej do skanowania drzewa i będzie oczekiwał na poawienie się kolejnego jabłka.
+The project includes comprehensive software capable of identifying and harvesting apples using a UR3e robot, OAK-D Pro camera, and RG2 gripper. After assembling all the components and starting the required nodes, the robot will position itself ready to scan the tree. If an apple is detected in the camera's field of view, the robot will move to the harvesting position and collect the fruit. After harvesting, the robot will return to the scanning position, waiting for the next apple.
 
-## Struktura węzłów i tematów
+## Nodes and Topics Structure
 
-### Węzeł camera_control_node
+### Node camera_control_node
 
-Węzeł ten odpowiada za przetwarzanie obrazu z kamery. Odczytane dane procesuje za pomocą sieci neuronowej Yolo v8, a po wykryciu jabłka przekazuje robotowi informację o poziomym i pionowym kierunku, w którym powinien się poruszyć. Dzieje się to za pomocą tematu `custom_camera`. Węzeł ten jest także odpowiedzialny za mierzenie oraz przekazywanie pomiaru odległości do jabłka - informacja ta jest niezbędna, aby przesunąć robota o prawidłową wartość.
+This node is responsible for processing the camera image. It processes the captured data using the YOLO v8 neural network. After detecting an apple, it sends information to the robot about the horizontal and vertical directions it should move. This is done through the custom_camera topic. The node is also responsible for measuring and transmitting the distance to the apple, essential for moving the robot the correct distance.
 
-### Węzeł gripper_control_node
+### Node gripper_control_node
 
-Ten węzeł odpowiada z kolei za zamykanie oraz otwieranie chwytaka. Nasłuchuje on poleceń na temacie `custom_gripper`. W przypadku otrzymania komendy otwarcia bądź zamknięcia, przesyła on odpowiednią funkcję wraz z jej wywołaniem do kontrolera robota. Po 4 sekundach aktywuje serwis `/dashboard_client/play` odpowiedzialny za przywrócenie kontroli nad robotem do bloku programu `External Control` - dzięki temu w dalszym ciągu będziemy posiadali możliwość sterowania UR3e z poziomu ROS2.
+This node is responsible for opening and closing the gripper. It listens for commands on the `custom_gripper` topic. Upon receiving a command to open or close, it sends the corresponding function along with its invocation to the robot controller. After 4 seconds, it activates the `/dashboard_client/play` service, responsible for regaining control over the robot in the `External Control` program block. This allows continued control of UR3e through ROS2.
 
-### Węzeł master_node
+### Node master_node
 
-Jest to węzeł odpowiedzialny za poruszanie ramieniem robotycznym. To on odpowiada za ustawienie robota w pozycji wyszukiwania jabłek oraz za poruszanie nim w odpowiednią stronę wzdłuż osi poziomej oraz pionowej. Subskrybuje on temat `custom_camera` i na podstawie odczytanych z niego danych wykonuje odpowiednie ruchy robotem. W przypadku, gdy chce zacisnąć chwytak na jabłku, publikuje odpowiednią komendę na temacie `custom_gripper` i odczekuje 5 sekund, po czym przenosi jabłko do punktu docelwego. 
+This node is responsible for moving the robotic arm. It sets the robot in the position to search for apples and moves it in the correct direction along the horizontal and vertical axes. It subscribes to the `custom_camera` topic and performs the appropriate robot movements based on the data read from it. When it needs to grip the apple, it publishes the relevant command to the `custom_gripper` topic and waits for 5 seconds before moving the apple to the target point.
 
-### Temat custom_camera
+### Topic custom_camera
 
-Temat odpowiedzialny za przekazywanie danych o pozycji jabłka względem kamery. Przyjmowany typ danych to: `{data: {x: string, y: string, depth: string}}`.
+This topic is responsible for transmitting data about the apple's position relative to the camera. The accepted data type is: `{data: {x: string, y: string, depth: string}}`.
 
-### Temat custom_gripper
+### Topic custom_gripper
 
-Temat ten odpowiada z kolei za sterowanie chwytakiem. Przyjmowany typ danych to: `{data: string}`.
+This topic controls the gripper. The accepted data type is: `{data: string}`.
 
-## Wymagany sprzęt
+## Required Hardware
 
-- Ramię robotyczne Universal Robot 3e,
-- Kamera OAK-D Pro,
-- Uchwyt na kamerę,
-- Chwytak RG2,
-- Naświetlacz (zalecany, lecz nie wymagany)
+- Universal Robot 3e robotic arm,
+- OAK-D Pro camera,
+- Camera mount,
+- RG2 gripper,
+- Illuminator (recommended but not required)
 
-## Konfiguracja sprzętu
+## Hardware Configuration
 
-### Robot UR3e
+### UR3e Robot
 
-Robota należy podłączyć do routera. Podłączenie naszych komputerów do tego samego routera pozwoli na komunikację z robotem. W konfiguracji robota (na Teach Pendancie) należy zaznaczyć opcję "Enable Remote Control", ustawić pole "Host IP" na adres naszego komputera, oraz dodać do programu robota blok "External Control".
+Connect the robot to the router. Connecting our computers to the same router allows communication with the robot. In the robot configuration (on Teach Pendant), enable "Enable Remote Control," set the "Host IP" field to your computer's address, and add the "External Control" block to the robot program.
 
-### Kamera OAK-D Pro
+### OAK-D Pro Camera
 
-Konieczne jest jej umocowanie za pomocą zaprojektowanego przez nas uchwytu. Następnie należy podłączyć ją za pomocą dwóch przewodów - jednego zasilającego i drugiego, służącego do transferu danych. Przewód odpowiadający za transmisję danych podłączamy do komputera, na którym będzie uruchomiony węzeł odpowiadający za obsługę kamery.
+Mount the camera using our designed mount. Then, connect it using two cables - one for power and the other for data transfer. Connect the data transmission cable to the computer where the camera handling node will run.
 
-### Chwytak RG2
+### RG2 Gripper
 
-Chwytak należy zamocować na końcu ramienia robota oraz podłączyć do portu znajdującego się w pobliżu końcówki. Istotnym jest, aby najpierw przymocować kamerę na uchwycie.
+Mount the gripper at the end of the robot arm and connect it to the port near the end effector. It is essential to attach the camera to the mount first.
 
-![Końcówka robota po instalacji całego sprzętu](./vision_setup.jpg)
+![Robot end effector after installing all equipment](./vision_setup.jpg)
 
-## Instalacja
+## Installation
 
-Aby uruchomić projekt, należy wykonać następujące kroki:
+To run the project, follow these steps:
 
-1. Zainstalować wymagane oprogramowanie: ROS2 humble, python3, depthai, ultralytics,
-2. Należy zbudować projekt za pomocą komendy `colcon build` oraz `source install/setup.bash`,
-3. Następnie wpisujemy komendę `ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur3e robot_ip:=<ADRES_IP_ROBOTA> initial_joint_controller:=scaled_joint_trajectory_controller launch_rviz:=false headless_mode:=false`,
-4. W drugim oknie terminala uruchamiamy moveit2 komendą: `ros2 launch ur_moveit_config ur_moveit.launch.py ur_type:=ur3e`,
-5. W kolejnym oknie terminala uruchamiamy węzeł odpowiedzialny za obsługę kamery: `ros2 run camera_control camera_control_node`,
-6. Następnie należy uruchomić węzeł odpowiedzialny z sterowanie chwytakiem: `ros2 run gripper_control gripper_control_node`,
-7. Ostatnim krokiem jest uruchomienie węzła odpowiedzialnego za poruszanie robotem: `ros2 launch ur_mover master_node.launch.py`
+1. Install the required software: ROS2 humble, python3, depthai, ultralytics,
+2. Build the project using the commands `colcon build` and `source install/setup.bash`,
+3. In the first terminal window enter the command `ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur3e robot_ip:=<ROBOT_IP_ADDRESS> initial_joint_controller:=scaled_joint_trajectory_controller launch_rviz:=false headless_mode:=false`,
+4. In another terminal window, launch moveit2 with the command: `ros2 launch ur_moveit_config ur_moveit.launch.py ur_type:=ur3e`,
+5. In the next terminal window, run the camera control node: `ros2 run camera_control camera_control_node`,
+6. Next, run the gripper control node: `ros2 run gripper_control gripper_control_node`,
+7. The final step is to launch the node responsible for moving the robot: `ros2 launch ur_mover master_node.launch.py`
 
-## Autorzy
-- Patryk Marczak,
-- Kacper Nowaczyk
+## Authors
+Patryk Marczak,
+Kacper Nowaczyk
