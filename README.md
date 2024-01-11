@@ -4,6 +4,10 @@
 
 The project includes comprehensive software capable of identifying and harvesting apples using a UR3e robot, OAK-D Pro camera, and RG2 gripper. After assembling all the components and starting the required nodes, the robot will position itself ready to scan the tree. If an apple is detected in the camera's field of view, the robot will move to the harvesting position and collect the fruit. After harvesting, the robot will return to the scanning position, waiting for the next apple.
 
+## Demo
+You can watch the whole system in action [here](https://www.youtube.com/watch?v=lkgtlxzp-2w&ab_channel=KacperNowaczyk)
+
+
 ## Nodes and Topics Structure
 
 ### Node camera_control_node
